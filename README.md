@@ -1,6 +1,6 @@
 # LLaMPPL + HuggingFace
 
-![docs](https://github.com/probcomp/hfppl/actions/workflows/docs.yml/badge.svg)
+[![docs](https://github.com/probcomp/hfppl/actions/workflows/docs.yml/badge.svg)](https://probcomp.github.io/hfppl)
 
 
 Implementation of LLaMPPL using HuggingFace Transformers.
