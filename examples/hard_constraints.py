@@ -1,65 +1,40 @@
-import hfppl as hp
-
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
 import string
-
 import asyncio
-
-# Define a file hf_api_token.py with the constant HF_AUTH_TOKEN set to your HuggingFace API token (a string)
-from hf_api_token import HF_AUTH_TOKEN
-
-# Load the LLaMA model
-LLAMA = hp.CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", auth_token=HF_AUTH_TOKEN)
-LLAMA.batch_size = 40
+from hfppl import Model, CachedCausalLM, Token, StatefulLM, smc_standard
 
 
-def can_follow(str_so_far, s):
-    if isinstance(s, hp.Token):
-        s = str(s)
-    if len(s.strip()) > 5:
-        return False
-    if len(s.strip()) == 0:
-        return True
-    if not s[0].isalpha():
-        return True
-    if len(str_so_far) == 0:
-        return True # First token, can be alphanumeric
-    words = str_so_far.split()
-    if len(words) >= 1 and len(words[-1]) + len(s) <= 5:
-        return True
-    else:
-        return False
+# Load the language model. 
+# Vicuna is an open model; to use a model with restricted access, like LLaMA 2,
+# pass your HuggingFace API key as the optional `auth_token` argument:
+#    LLM = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", auth_token=HF_AUTH_TOKEN)
+LLM = CachedCausalLM.from_pretrained("lmsys/vicuna-7b-v1.5")
+LLM.batch_size = 40
 
-MASKS = {i : set(j for (j,v) in enumerate(LLAMA.vocab)
-                 if j != LLAMA.tokenizer.eos_token_id and '\n' not in v and
+MASKS = {i : set(j for (j,v) in enumerate(LLM.vocab)
+                 if j != LLM.tokenizer.eos_token_id and '\n' not in v and
                  any(c.isalpha() or c in string.punctuation for c in v) and
-                 can_follow("a" * i, v)) for i in range(6)}
+                 len(v.strip()) <= 5 and (not v[0].isalpha() or i+len(v) <= 5))
+             for i in range(6)}
 
-def constraint_mask(str_so_far):
-    words = str_so_far.split()
-    if len(words) >= 1:
-        return MASKS[min(5, len(words[-1]))]
-    else:
-        return MASKS[0]
-
-
-class ConstraintModel(hp.Model):
+class ConstraintModel(Model):
     def __init__(self, prompt, max_tokens):
         super().__init__()
-        self.lm         = hp.StatefulLM(LLAMA, prompt)
-        self.q          = hp.StatefulLM(LLAMA, prompt)
+        self.lm         = StatefulLM(LLM, prompt)
+        self.q          = StatefulLM(LLM, prompt)
         self.prompt_len = len(str(self.lm.s))
         self.max_tokens = max_tokens
         
 
     async def step(self):
+        # Which tokens are allowed?
+        mask = self.active_constraint_mask()
+        
         # Generate proposed token.
         token = await self.sample(self.lm.next_token(), 
-                                  proposal = await self.locally_optimal_proposal())
+                                  proposal = await self.proposal(mask))
 
         # Condition on constraint — a no-op since proposal already guarantees the constraint
-        # self.condition(can_follow(str(self.lm.s), token))
+        self.condition(token.token_id in mask)
         
         # Reduce number of max tokens remaining
         self.max_tokens -= 1
@@ -68,16 +43,21 @@ class ConstraintModel(hp.Model):
         print(str(self.lm.s)[self.prompt_len:])
 
         # Check if done
-        if token == LLAMA.tokenizer.eos_token_id or self.max_tokens == 0:
+        if token == LLM.tokenizer.eos_token_id or self.max_tokens == 0:
             self.finish()
             return
     
+    def active_constraint_mask(self):
+        string_so_far = str(self.lm.s)
+        words = string_so_far.split()
+        last_word = words[-1] if len(words) > 0 else ""
+        return MASKS[min(5, len(last_word))]
     
-    async def locally_optimal_proposal(self):
+    async def proposal(self, mask):
         string_so_far = str(self.lm.s)
         
         # Force the proposal StatefulLM to adhere to this mask
-        await self.intervene(self.q.mask_dist(constraint_mask(string_so_far)), True)
+        await self.intervene(self.q.mask_dist(mask), True)
         
         # Return the proposal's modified next-token distribution
         return self.q.next_token()
@@ -92,11 +72,11 @@ prompt = """3 things to watch …
 
 3."""
 
-LLAMA.cache_kv(LLAMA.tokenizer.encode(prompt))
+LLM.cache_kv(LLM.tokenizer.encode(prompt))
 
 async def main():
     constraint_model = ConstraintModel(prompt, 50)
-    particles = await hp.smc_standard(constraint_model, 40)
+    particles = await smc_standard(constraint_model, 40)
     for p in particles:
         print(str(p.lm.s)[p.prompt_len:])
 

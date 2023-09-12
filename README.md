@@ -6,6 +6,24 @@ LLaMPPL is a research prototype for language model probabilistic programming: sp
 
 This repository implements LLaMPPL for use with HuggingFace Transformers.
 
+## Installation
+
+To get started, clone this repository and run `pip install .` (or `pip install -e .` if you plan to modify the library).
+
+```
+git clone https://github.com/probcomp/hfppl
+cd hfppl
+pip install .
+```
+
+Then, try running an example. Note that this will cause the weights for Vicuna-7b-v1.5 to be downloaded.
+
+```
+python examples/hard_constraints.py
+```
+
+If everything is working, you should see the model generate political news using words that are at most five letters long (e.g., "Dr. Jill Biden may still be a year away from the White House but she is set to make her first trip to the U.N. today.").
+
 ## Modeling with LLaMPPL
 
 A LLaMPPL program is a subclass of the `hfppl.Model` class.
@@ -90,8 +108,3 @@ sunny and cool.
 ```
 
 Further documentation can be found at https://probcomp.github.io/hfppl.
-
-## Installation
-To get started, clone this repository and run `pip install .`
-
-The example `examples/hard_constraints.py` uses LLaMA2, which requires authorization from Meta. To run it, create a file `examples/hf_api_token.py`, with a constant `HF_AUTH_TOKEN` set to your HuggingFace API token. Alternatively, you can switch to a different (open) model by changing the first argument of `CachedCausalLM.from_pretrained` to another HuggingFace model identifier.
