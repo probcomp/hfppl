@@ -2,6 +2,7 @@
 
 Currently supported distributions:
 
+* `Bernoulli(p: float) -> bool`
 * `Geometric(p: float) -> int`
 * `LogCategorical(logits: array) -> int`
 * `TokenCategorical(lm: hfppl.llms.CachedCausalLM, logits: array) -> hfppl.llms.Token`
@@ -16,3 +17,4 @@ from .logcategorical import LogCategorical
 from .tokencategorical import TokenCategorical
 from .transformer import Transformer
 from .statefullm import StatefulLM
+from .bernoulli import Bernoulli

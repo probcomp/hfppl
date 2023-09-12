@@ -7,7 +7,7 @@ class Transformer(Distribution):
 
     def __init__(self, lm, prompt, temp=1.0):
         """Create a Categorical distribution whose values are Tokens, with probabilities given
-        by a language model. Supports auto-batching when used with `sample_async` and `observe_async`.
+        by a language model. Supports auto-batching.
         
         Args:
             lm (hfppl.llms.CachedCausalLM): the language model.

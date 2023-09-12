@@ -15,7 +15,7 @@ class LogCategorical(Distribution):
 
     async def sample(self):
         n = np.random.choice(len(self.log_probs), p=np.exp(self.log_probs))
-        return n, self.log_prob(n)
+        return n, await self.log_prob(n)
 
     async def log_prob(self, value):
         return self.log_probs[value]

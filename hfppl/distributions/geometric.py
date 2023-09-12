@@ -14,7 +14,7 @@ class Geometric(Distribution):
 
     async def sample(self):
         n = np.random.geometric(self.p)
-        return n, self.log_prob(n)
+        return n, await self.log_prob(n)
 
     async def log_prob(self, value):
         return np.log(self.p) + np.log(1 - self.p)*(value - 1)

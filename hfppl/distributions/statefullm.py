@@ -79,7 +79,7 @@ class StatefulLM:
     The state of a `StatefulLM` can be advanced in three ways:
     
     1. Sampling, observing, or intervening the `next_token()` distribution. This causes a token
-    to be added to the growing sequence of tokens.
+    to be added to the growing sequence of tokens. Supports auto-batching.
     2. Sampling, observing, or intervening the `mask_dist(mask)` distribution for a given mask (set of
     token ids). This changes the current mask.
     """
