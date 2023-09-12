@@ -32,7 +32,7 @@ In principle, key-value caching is most useful when:
 
 Currently, only the first use case is well-supported by the LLaMPPL library, via the 
 [`lm.cache_kv(prompt)`][hfppl.llms.CachedCausalLM.cache_kv] method. This method computes and caches key and value vectors
-for every token in `prompt`. Future calls to [`lm.next_token_logprobs`][hfppl.llms.CachedCausalLM.next_token_logprobs] and [`lm.next_token_logprobs_async`][hfppl.llms.CachedCausalLM.next_token_logprobs_async]
+for every token in `prompt`. Future calls to [`lm.next_token_logprobs`][hfppl.llms.CachedCausalLM.next_token_logprobs] and [`lm.next_token_logprobs_unbatched`][hfppl.llms.CachedCausalLM.next_token_logprobs_unbatched]
 will automatically recognize when `prompt` is a prefix of the new query, and automatically
 exploit incremental computation. Multiple prompts can be cached, and [`lm.clear_kv_cache()`][hfppl.llms.CachedCausalLM.clear_kv_cache] can
 be used to clear the KV-cache without clearing the log probability cache.

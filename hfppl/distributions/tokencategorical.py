@@ -19,13 +19,13 @@ class TokenCategorical(Distribution):
         if self.lm.tokenizer.vocab_size != len(logits):
             raise RuntimeError(f"TokenCategorical: vocab size is {self.lm.tokenizer.vocab_size} but provided {len(logits)} logits.")
 
-    def sample(self):
+    async def sample(self):
         n = np.random.choice(len(self.log_probs), p=(np.exp(self.log_probs)))
         return Token(self.lm, n, self.lm.tokenizer.convert_ids_to_tokens(n)), self.log_probs[n]
 
-    def log_prob(self, value):
+    async def log_prob(self, value):
         return self.log_probs[value.token_id]
     
-    def argmax(self, idx):
+    async def argmax(self, idx):
         tok = torch.argsort(self.log_probs)[-idx]
         return Token(self.lm, tok, self.lm.tokenizer.convert_ids_to_tokens(tok)), self.log_probs[tok]

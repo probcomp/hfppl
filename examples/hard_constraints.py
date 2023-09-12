@@ -55,8 +55,8 @@ class ConstraintModel(hp.Model):
 
     async def step(self):
         # Generate proposed token.
-        token = await self.sample_async(self.lm.next_token(), 
-                                        proposal = self.locally_optimal_proposal())
+        token = await self.sample(self.lm.next_token(), 
+                                  proposal = await self.locally_optimal_proposal())
 
         # Condition on constraint — a no-op since proposal already guarantees the constraint
         # self.condition(can_follow(str(self.lm.s), token))
@@ -73,11 +73,11 @@ class ConstraintModel(hp.Model):
             return
     
     
-    def locally_optimal_proposal(self):
+    async def locally_optimal_proposal(self):
         string_so_far = str(self.lm.s)
         
         # Force the proposal StatefulLM to adhere to this mask
-        self.do(self.q.mask_dist(constraint_mask(string_so_far)), True)
+        await self.intervene(self.q.mask_dist(constraint_mask(string_so_far)), True)
         
         # Return the proposal's modified next-token distribution
         return self.q.next_token()
@@ -96,7 +96,7 @@ LLAMA.cache_kv(LLAMA.tokenizer.encode(prompt))
 
 async def main():
     constraint_model = ConstraintModel(prompt, 50)
-    particles = await hp.smc_standard_async(constraint_model, 40)
+    particles = await hp.smc_standard(constraint_model, 40)
     for p in particles:
         print(str(p.lm.s)[p.prompt_len:])
 

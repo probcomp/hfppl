@@ -23,12 +23,11 @@ class Transformer(Distribution):
         elif isinstance(prompt, TokenSequence):
             prompt = prompt.seq
             
-            
         self.prompt = prompt
         
         
-    async def log_prob_async(self, x):
-        log_probs = await self.lm.next_token_logprobs_async(self.prompt)
+    async def log_prob(self, x):
+        log_probs = await self.lm.next_token_logprobs(self.prompt)
         log_probs = log_probs / self.temp
         
         if isinstance(x, Token):
@@ -36,32 +35,14 @@ class Transformer(Distribution):
         
         return log_probs[x]
     
-    async def sample_async(self):
-        log_probs = await self.lm.next_token_logprobs_async(self.prompt)
+    async def sample(self):
+        log_probs = await self.lm.next_token_logprobs(self.prompt)
         log_probs = log_probs / self.temp
         probs = np.exp(log_probs)
         token_id = np.random.choice(len(probs), p=(probs))
         logprob = log_probs[token_id]
         return Token(self.lm, token_id, self.lm.tokenizer.convert_ids_to_tokens(token_id)), logprob
         
-    def log_prob(self, x):
-        log_probs = lm.next_token_logprobs(prompt)
-        log_probs = log_probs / self.temp
-        
-        # Check if x is a token or an int
-        if isinstance(x, Token):
-            x = x.token_id
-        
-        return log_probs[x]
-        
-    def sample(self):
-        log_probs = lm.next_token_logprobs(prompt)
-        log_probs = log_probs / self.temp
-        probs = np.exp(log_probs)
-        token_id = np.random.choice(len(probs), p=(probs))
-        logprob = log_probs[token_id]
-        return Token(self.lm, token_id, self.lm.tokenizer.convert_ids_to_tokens(token_id)), logprob
-    
 #     def argmax(self, idx):
 #         token_id = np.argsort(self.log_probs)[-idx]
 #         return Token(self.lm, token_id, self.lm.tokenizer.convert_ids_to_tokens(token_id)), log_probs[token_id]

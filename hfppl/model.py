@@ -67,12 +67,10 @@ class Model:
     def done_stepping(self):
         return self.finished
 
-    def step(self):
+    async def step(self):
         """Defines the computation performed in each step of the model.
         
-        All subclasses should override this method.
-        
-        Subclasses may choose to define `step` as an `async` method, to benefit from autobatching."""
+        All subclasses should override this method."""
         
         if not self.done_stepping():
             raise NotImplementedError("Model.step() must be implemented by subclasses")
@@ -108,67 +106,22 @@ class Model:
             self.score(float('-inf'))
             self.finish()
     
-    def observe(self, dist, x):
-        """Condition the model on the value `x` being sampled from the distribution `dist`.
-        
-        For discrete distributions `dist`, `observe(dist, x)` specifies the same constraint as
-        ```
-        val = self.sample(dist)
-        self.condition(val == x)
-        ```
-        but can be much more efficient.
-        
-        Args:
-            dist: a `Distribution` object from which to observe
-            x: the value observed from `dist`
-        """
-        self.score(dist.log_prob(x))
-        return x
-    
-    def do(self, dist, x):
+    async def intervene(self, dist, x):
         """Force the distribution to take on the value `x`, but do not _condition_ on this result.
         
         This is useful primarily with distributions that have side effects (e.g., modifying some state).
         For example, a model with the code
         
         ```python
-        token_1 = self.sample(self.stateful_lm.next_token())
-        self.observe(self.stateful_lm.next_token(), token_2)
+        token_1 = await self.sample(self.stateful_lm.next_token())
+        await self.observe(self.stateful_lm.next_token(), token_2)
         ```
         
         encodes a posterior inference problem, to find `token_1` values that *likely preceded* `token_2`. By contrast,
         
         ```python
-        token_1 = self.sample(stateful_lm.next_token())
-        self.do(self.stateful_lm.next_token(), token_2)
-        ```
-        
-        encodes a much easier task: freely generate `token_1` and then force-feed `token_2` as the following token.
-        
-        Args:
-            dist (hfppl.distributions.distribution.Distribution): the distribution on which to intervene.
-            x: the value to intervene with.
-        """
-        
-        _ = dist.log_prob(x)
-        return x
-
-    async def do_async(self, dist, x):
-        """Force the distribution to take on the value `x`, but do not _condition_ on this result, with support for autobatching.
-        
-        This is useful primarily with distributions that have side effects (e.g., modifying some state).
-        For example, a model with the code
-        
-        ```python
-        token_1 = await self.sample_async(self.stateful_lm.next_token())
-        await self.observe_async(self.stateful_lm.next_token(), token_2)
-        ```
-        
-        encodes a posterior inference problem, to find `token_1` values that *likely preceded* `token_2`. By contrast,
-        
-        ```python
-        token_1 = await self.sample_async(stateful_lm.next_token())
-        await self.do_async(self.stateful_lm.next_token(), token_2)
+        token_1 = await self.sample(stateful_lm.next_token())
+        await self.observe(self.stateful_lm.next_token(), token_2)
         ```
         
         encodes a much easier task: freely generate `token_1` and then force-feed `token_2` as the following token.
@@ -180,12 +133,12 @@ class Model:
         await dist.log_prob(x)
         return x
     
-    async def observe_async(self, dist, x):
-        """Condition the model on the value `x` being sampled from the distribution `dist`, with support for autobatching.
+    async def observe(self, dist, x):
+        """Condition the model on the value `x` being sampled from the distribution `dist`.
         
-        For discrete distributions `dist`, `await self.observe_async(dist, x)` specifies the same constraint as
+        For discrete distributions `dist`, `await self.observe(dist, x)` specifies the same constraint as
         ```
-        val = await self.sample_async(dist)
+        val = await self.sample(dist)
         self.condition(val == x)
         ```
         but can be much more efficient.
@@ -194,11 +147,11 @@ class Model:
             dist: a `Distribution` object from which to observe
             x: the value observed from `dist`
         """
-        p = await dist.log_prob_async(x)
+        p = await dist.log_prob(x)
         self.score(p)
         return x
     
-    async def sample_async(self, dist, proposal=None):
+    async def sample(self, dist, proposal=None):
         """Extend the model with a sample from a given `Distribution`, with support for autobatching. 
         If specified, the Distribution `proposal` is used during inference to generate informed hypotheses.
         
@@ -210,44 +163,21 @@ class Model:
         Returns:
             value: the value sampled from the distribution.
         """
-        if proposal is None:
-            x, _ = await dist.sample_async()
-            return x
-        else:
-            x, q = await proposal.sample_async()
-            p = await dist.log_prob_async(x)
-            self.score(p - q)
-            return x
-    
-    def sample(self, dist, proposal=None):
-        """Extend the model with a sample from a given `Distribution`. 
-        If specified, the Distribution `proposal` is used during inference to generate informed hypotheses.
-        
-        Args:
-            dist: the `Distribution` object from which to sample
-            proposal: if provided, inference algorithms will use this `Distribution` object to generate proposed samples, rather than `dist`.
-              However, importance weights will be adjusted so that the target posterior is independent of the proposal.
-        
-        Returns:
-            value: the value sampled from the distribution.
-        """
-        
         # Special logic for beam search
-        if self.mode == "beam":
-            d = dist if proposal is None else proposal
-            x, w = d.argmax(self.beam_idx)
-            if proposal is not None:
-                self.score(dist.log_prob(x))
-            else:
-                self.score(w)
-            return x
-
-        # If no proposal, sample from the distribution
+        # if self.mode == "beam":
+        #     d = dist if proposal is None else proposal
+        #     x, w = d.argmax(self.beam_idx)
+        #     if proposal is not None:
+        #         self.score(dist.log_prob(x))
+        #     else:
+        #         self.score(w)
+        #     return x
+        
         if proposal is None:
-            x, _ = dist.sample()
+            x, _ = await dist.sample()
             return x
-        # Otherwise, sample from the proposal
         else:
-            x, q = proposal.sample()
-            self.score(dist.log_prob(x) - q)
+            x, q = await proposal.sample()
+            p = await dist.log_prob(x)
+            self.score(p - q)
             return x

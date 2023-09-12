@@ -8,50 +8,27 @@ class StatefulLMNextToken(Distribution):
     def __init__(self, slm):
         self.slm = slm
     
-    async def log_prob_async(self, x):
+    async def log_prob(self, x):
         if isinstance(x, Token):
             x = x.token_id
         
         lp = self.slm.next_token_logprobs[x]
         self.slm.s += x
-        updated_logprobs = await self.slm.lm.next_token_logprobs_async(self.slm.s.seq)
+        updated_logprobs = await self.slm.lm.next_token_logprobs(self.slm.s.seq)
         self.slm.next_token_logprobs = log_softmax(updated_logprobs / self.slm.temp)
         self.slm.model_mask = self.slm.NO_MASK
         
         return lp
     
-    async def sample_async(self):
+    async def sample(self):
         probs = np.exp(self.slm.next_token_logprobs)
         token_id = np.random.choice(len(probs), p=(probs))
         logprob = self.slm.next_token_logprobs[token_id]
         t = Token(self.slm.lm, token_id, self.slm.lm.tokenizer.convert_ids_to_tokens(token_id))
         self.slm.s += t
         self.slm.model_mask = self.slm.NO_MASK
-        updated_logprobs = await self.slm.lm.next_token_logprobs_async(self.slm.s.seq)
+        updated_logprobs = await self.slm.lm.next_token_logprobs(self.slm.s.seq)
         self.slm.next_token_logprobs = log_softmax(updated_logprobs / self.slm.temp)
-        return t, logprob
-
-    
-    def log_prob(self, x):
-        # Check if x is a token or an int
-        if isinstance(x, Token):
-            x = x.token_id
-        
-        lp = self.slm.next_token_logprobs[x]
-        self.slm.s += x
-        self.slm.next_token_logprobs = log_softmax(self.slm.lm.next_token_logprobs(self.slm.s.seq) / self.slm.temp)
-        self.slm.model_mask = self.slm.NO_MASK
-        
-        return lp
-        
-    def sample(self):
-        probs = np.exp(self.slm.next_token_logprobs)
-        token_id = np.random.choice(len(probs), p=(probs))
-        logprob = self.slm.next_token_logprobs[token_id]
-        t = Token(self.slm.lm, token_id, self.slm.lm.tokenizer.convert_ids_to_tokens(token_id))
-        self.slm.s += t
-        self.slm.model_mask = self.slm.NO_MASK
-        self.slm.next_token_logprobs = log_softmax(self.slm.lm.next_token_logprobs(self.slm.s.seq) / self.slm.temp)
         return t, logprob
     
     
@@ -60,7 +37,7 @@ class StatefulLMMask(Distribution):
         self.slm  = slm
         self.mask = mask
         
-    def sample(self):
+    async def sample(self):
         newly_bad_tokens  = [i for i in self.slm.model_mask if i not in self.mask]
         good_tokens       = [i for i in self.slm.model_mask if i in self.mask]
         logprob_no_mask   = logsumexp(self.slm.next_token_logprobs[newly_bad_tokens])
@@ -77,7 +54,7 @@ class StatefulLMMask(Distribution):
             self.slm.next_token_logprobs -= logprob_yes_mask
             return True, logprob_yes_mask
         
-    def log_prob(self, v):
+    async def log_prob(self, v):
         good_tokens  = self.slm.model_mask.intersection(self.mask) if v else self.slm.model_mask - self.mask
         bad_tokens   = [i for i in self.slm.model_mask if i not in good_tokens]
         logprob_good = logsumexp(self.slm.next_token_logprobs[list(good_tokens)])
@@ -110,7 +87,7 @@ class StatefulLM:
     def __init__(self, lm, prompt, temp=1.0):
         self.lm                  = lm
         self.s                   = TokenSequence(lm, prompt)
-        self.next_token_logprobs = log_softmax(lm.next_token_logprobs(self.s.seq) / temp)
+        self.next_token_logprobs = log_softmax(lm.next_token_logprobs_unbatched(self.s.seq) / temp)
         self.temp                = temp
         self.NO_MASK    = set(range(len(self.lm.vocab)))
         self.model_mask = self.NO_MASK

@@ -246,7 +246,7 @@ class CachedCausalLM:
         # and a Future to be called when the query is resolved.
         self.queries = []
         self.batch_size = batch_size
-        self.TIMEOUT = 0.5
+        self.timeout = 0.02
         self.timer = None
         
         self.batch_prompt = None
@@ -279,24 +279,6 @@ class CachedCausalLM:
         
         node = self.cache.extend_cache(1, prompt_tokens, result.logits[0], 0)
         node.past_key_values = result.past_key_values
-    
-#     @torch.no_grad()
-#     def cache_common_prompt_for_batches(self, prompt_tokens):
-#         self.batch_prompt          = prompt_tokens
-#         out = self.model(torch.tensor([prompt_tokens]).to(self.device))
-#         self.batch_logits = out.logits[0]
-#         self.batch_past_key_values = out.past_key_values
-        
-#         # Also store logprobs in Trie
-#         node = self.cache
-#         node.logprobs = torch.log_softmax(self.batch_logits[0],0).cpu().numpy()
-        
-#         for (i, token) in enumerate(self.batch_prompt[1:]):
-#             if token in node.children:
-#                 node = node.children[token]
-#             else:
-#                 lps = torch.log_softmax(self.batch_logits[i+1], 0)
-#                 node = node.add_token(token, lps.cpu().numpy())
     
     @torch.no_grad()
     def batch_evaluate_queries(self):
@@ -335,7 +317,7 @@ class CachedCausalLM:
         if len(self.queries) >= self.batch_size:
             self.batch_evaluate_queries()
         else:
-            self.timer = asyncio.get_running_loop().call_later(self.TIMEOUT, lambda: self.batch_evaluate_queries())
+            self.timer = asyncio.get_running_loop().call_later(self.timeout, lambda: self.batch_evaluate_queries())
     
     def walk_cache(self, token_ids):
         # Walk while tokens can be found
@@ -358,7 +340,7 @@ class CachedCausalLM:
     
     # Currently does not use caching
     @torch.no_grad()
-    async def next_token_logprobs_async(self, token_ids):
+    async def next_token_logprobs(self, token_ids):
         """Request log probabilities of next token. This version is asynchronous because it automatically batches concurrent requests; use with `await`. 
         
         Args:
@@ -388,8 +370,8 @@ class CachedCausalLM:
         return node.logprobs
     
     @torch.no_grad()
-    def next_token_logprobs(self, token_ids, cache_this_result=False):
-        """Request log probabilities of next token.
+    def next_token_logprobs_unbatched(self, token_ids, cache_this_result=False):
+        """Request log probabilities of next token. Not asynchronous, and does not support auto-batching.
         
         Args:
             token_ids (list[int]): a list of token ids starting with `tokenizer.bos_token_id`, representing a prompt to the language model.
@@ -409,38 +391,5 @@ class CachedCausalLM:
         logits = self.model(torch.tensor([token_ids[base:]]).to(self.device), past_key_values=node.past_key_values, use_cache=node.past_key_values is not None).logits[0]
         
         node = node.extend_cache(next_token_index, token_ids, logits, base)
-
-        #         node             = self.cache
-        #         next_token_index = 1
-
-        #         while next_token_index < len(token_ids):
-        #             if node.has_token(token_ids[next_token_index]):
-        #                 node = node.get_token(token_ids[next_token_index])
-        #                 next_token_index += 1
-        #             else:
-        #                 break
-
-        #         # If we processed all tokens, then we're done.
-        #         if next_token_index == len(token_ids):
-        #             if cache_this_result and node.past_key_values is None:
-        #                 print("Warning: not cacheing past KV values because logprobs already evaluated.")
-        #             return node.logprobs
-
-        #         # Otherwise, run the model...
-        #         base = next_token_index if node.past_key_values is not None else 0
-        #         prompt = torch.tensor([token_ids[base:]]).to(self.device)
-        #         output = self.model(prompt, past_key_values=node.past_key_values, use_cache=cache_this_result or node.past_key_values is not None)
-        #         logits = output.logits[0] # 0 is batch
-
-        #         # Create new nodes
-        #         for j in range(next_token_index, len(token_ids)):
-        #             token_id     = token_ids[j]
-        #             token_logits = logits[j-base]
-        #             token_logprobs  = torch.log_softmax(token_logits, 0)
-
-        #             node = node.add_token(token_id, token_logprobs.cpu().numpy())
-
-        #         if cache_this_result:
-        #             node.past_key_values = output.past_key_values
         
         return node.logprobs

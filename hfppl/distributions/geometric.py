@@ -2,20 +2,22 @@ from .distribution import Distribution
 
 class Geometric(Distribution):
     """A Geometric distribution.
-    
-    Attributes:
-        p (float): the rate of the Geometric distribution.
     """
     
     def __init__(self, p):
+        """Create a Geometric distribution.
+        
+        Args:
+            p: the rate of the Geometric distribution.
+        """
         self.p = p
 
-    def sample(self):
+    async def sample(self):
         n = np.random.geometric(self.p)
         return n, self.log_prob(n)
 
-    def log_prob(self, value):
+    async def log_prob(self, value):
         return np.log(self.p) + np.log(1 - self.p)*(value - 1)
     
-    def argmax(self, idx):
+    async def argmax(self, idx):
         return idx - 1 # Most likely outcome is 0, then 1, etc.

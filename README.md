@@ -37,8 +37,8 @@ class MyModel(Model):
     async def step(self):
         # Sample a token from the LLM -- automatically extends `self.context`.
         # We use `await` so that LLaMPPL can automatically batch language model calls.
-        token = await self.sample_async(self.context.next_token(), 
-                                        proposal=self.proposal())
+        token = await self.sample(self.context.next_token(), 
+                                  proposal=self.proposal())
 
         # Condition on the token not having the forbidden letter
         self.condition(token.token_id not in self.forbidden_tokens)
@@ -49,7 +49,7 @@ class MyModel(Model):
             self.finish()
     
     # Helper method to define a custom proposal
-    def proposal(self):        
+    def proposal(self):
         logits = self.context.next_token_logprobs.copy()
         logits[self.forbidden_tokens] = -float('inf')
         return TokenCategorical(self.lm, logits)
@@ -66,11 +66,11 @@ The Model class provides a number of useful methods for specifying a LLaMPPL pro
 * `self.finish()` indicates that generation is complete.
 * `self.observe(dist, obs)` performs a form of 'soft conditioning' on the given distribution. It is equivalent to (but more efficient than) sampling a value `v` from `dist` and then immediately running `condition(v == obs)`.
 
-To run inference, we use the `smc_steer_async` or `smc_standard_async` methods:
+To run inference, we use the `smc_steer` or `smc_standard` methods:
 
 ```python
 import asyncio
-from hfppl import smc_steer_async
+from hfppl import smc_steer
 
 # Initialize the HuggingFace model
 lm = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", auth_token=<YOUR_HUGGINGFACE_API_TOKEN_HERE>)
@@ -79,7 +79,7 @@ lm = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", auth_token=<YOUR
 model = MyModel(lm, "The weather today is expected to be", "e")
 
 # Run inference
-particles = asyncio.run(smc_steer_async(model, 5, 3)) # number of particles N, and beam factor K
+particles = asyncio.run(smc_steer(model, 5, 3)) # number of particles N, and beam factor K
 ```
 
 Sample output:
