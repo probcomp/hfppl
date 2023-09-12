@@ -8,12 +8,12 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
     Standard sequential Monte Carlo algorithm with multinomial resampling.
     
     Args:
-        model (hfppl.model.Model): The model to perform inference on.
+        model (hfppl.modeling.Model): The model to perform inference on.
         n_particles (int): Number of particles to execute concurrently.
         ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
     
     Returns:
-        particles (list[hfppl.model.Model]): The completed particles after inference.
+        particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
     weights = [0.0 for _ in range(n_particles)]

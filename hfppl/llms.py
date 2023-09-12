@@ -1,3 +1,5 @@
+"""Utilities for working with HuggingFace language models, including caching and auto-batching."""
+
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import asyncio

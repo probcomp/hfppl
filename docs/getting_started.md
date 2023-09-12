@@ -22,7 +22,7 @@ Depending on your available GPU memory, you may wish to edit the example to chan
 
 Let's write a LLaMPPL model to generate according to the hard constraint that completions do not use the lowercase letter `e`.
 
-To do so, we write subclass the [`Model`](hfppl.models.Model) class:
+To do so, we write subclass the [`Model`](hfppl.modeling.Model) class:
 
 ```python
 # examples/no_e.py
