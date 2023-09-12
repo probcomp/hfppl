@@ -13,7 +13,8 @@ setup(
                       'numpy',
                       'transformers',
                       'bitsandbytes',
-                      'accelerate'
+                      'accelerate',
+                      'sentencepiece'
                       ],
 
     classifiers=[
