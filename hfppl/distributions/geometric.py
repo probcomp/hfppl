@@ -1,6 +1,12 @@
 from .distribution import Distribution
 
 class Geometric(Distribution):
+    """A Geometric distribution.
+    
+    Attributes:
+        p (float): the rate of the Geometric distribution.
+    """
+    
     def __init__(self, p):
         self.p = p
 

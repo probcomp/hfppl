@@ -5,7 +5,15 @@ import numpy as np
 
 class TokenCategorical(Distribution):
 
-    def __init__(self, lm, logits):     
+    def __init__(self, lm, logits): 
+        """Create a Categorical distribution whose values are Tokens, not integers. 
+        Given a language model `lm` and an array of unnormalized log probabilities (of length `len(lm.vocab)`), 
+        uses softmax to normalize them and samples a Token from the resulting categorical.
+        
+        Args:
+            lm (hfppl.llms.CachedCausalLM): the language model whose vocabulary is to be generated from.
+            logits (np.array): a numpy array of unnormalized log probabilities.
+        """
         self.lm        = lm
         self.log_probs = log_softmax(logits)
         if self.lm.tokenizer.vocab_size != len(logits):
