@@ -248,9 +248,6 @@ class CachedCausalLM:
         self.batch_size = batch_size
         self.timeout = 0.02
         self.timer = None
-        
-        self.batch_prompt = None
-        self.batch_past_key_values = None
     
     def __deepcopy__(self, memo):
         return self
@@ -370,7 +367,7 @@ class CachedCausalLM:
         return node.logprobs
     
     @torch.no_grad()
-    def next_token_logprobs_unbatched(self, token_ids, cache_this_result=False):
+    def next_token_logprobs_unbatched(self, token_ids):
         """Request log probabilities of next token. Not asynchronous, and does not support auto-batching.
         
         Args:
