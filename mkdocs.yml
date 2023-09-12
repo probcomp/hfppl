@@ -2,6 +2,8 @@ site_name: LLaMPPL Docs
 
 theme:
   name: "material"
+  palette:
+    scheme: slate
 
 markdown_extensions:
   - pymdownx.highlight:
