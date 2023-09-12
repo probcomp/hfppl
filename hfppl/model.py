@@ -121,7 +121,7 @@ class Model:
         
         ```python
         token_1 = await self.sample(stateful_lm.next_token())
-        await self.observe(self.stateful_lm.next_token(), token_2)
+        await self.intervene(self.stateful_lm.next_token(), token_2)
         ```
         
         encodes a much easier task: freely generate `token_1` and then force-feed `token_2` as the following token.
