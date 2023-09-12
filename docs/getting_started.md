@@ -1,5 +1,9 @@
 # Getting Started
 
+## Colab
+
+One easy way to try LLaMPPL out is to use a Colab notebook. We have [a demo notebook](https://colab.research.google.com/drive/1uJEC-U8dcwsTWccCDGVexpgXexzZ642n?usp=sharing) that performs constrained generation with GPT-2, a small enough model that the RAM and GPU constraints of Colab's free version should not prevent you from running the demo.
+
 ## Installing LLaMPPL
 
 To get started, clone the `hfppl` repository and install the `hfppl` package:

@@ -8,7 +8,9 @@ This repository implements LLaMPPL for use with HuggingFace Transformers.
 
 ## Installation
 
-To get started, clone this repository and run `pip install .` (or `pip install -e .` if you plan to modify the library).
+If you just want to try out LLaMPPL, check out our [demo notebook on Colab](https://colab.research.google.com/drive/1uJEC-U8dcwsTWccCDGVexpgXexzZ642n?usp=sharing), which performs a simple constrained generation task using GPT-2. (Larger models may require more RAM or GPU resources than Colab's free version provides.)
+
+To get started on your own machine, clone this repository and run `pip install .` (or `pip install -e .` if you plan to modify the library).
 
 ```
 git clone https://github.com/probcomp/hfppl
