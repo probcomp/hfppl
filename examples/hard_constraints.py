@@ -4,6 +4,7 @@ from hfppl import Model, CachedCausalLM, Token, StatefulLM, smc_standard
 
 import os
 HF_AUTH_TOKEN = os.environ['HF_AUTH_TOKEN']
+
 # Load the language model. 
 # Vicuna is an open model; to use a model with restricted access, like LLaMA 2,
 # pass your HuggingFace API key as the optional `auth_token` argument:
