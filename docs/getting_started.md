@@ -31,7 +31,7 @@ To do so, we write subclass the [`Model`](hfppl.modeling.Model) class:
 ```python
 # examples/no_e.py
 
-from hfppl import Model, StatefulLM, TokenCategorical, CachedCausalLM
+from hfppl import Model, LMContext, TokenCategorical, CachedCausalLM
 
 # A LLaMPPL model subclasses the Model class
 class MyModel(Model):
@@ -44,7 +44,7 @@ class MyModel(Model):
         super().__init__()
 
         # A stateful context object for the LLM, initialized with the prompt
-        self.context = StatefulLM(lm, prompt)
+        self.context = LMContext(lm, prompt)
         
         # The forbidden letter
         self.forbidden_tokens = [i for (i, v) in enumerate(lm.vocab)

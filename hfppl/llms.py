@@ -283,6 +283,8 @@ class CachedCausalLM:
     def batch_evaluate_queries(self):
         
         queries, self.queries = self.queries, []
+        if len(queries) == 0:
+            return
         
         past_example = next((q.past for q in queries if q.past), False)
         max_past_length = max(q.past_len for q in queries)
@@ -337,7 +339,6 @@ class CachedCausalLM:
         
         return node, next_token_index, past, base
     
-    # Currently does not use caching
     @torch.no_grad()
     async def next_token_logprobs(self, token_ids):
         """Request log probabilities of next token. This version is asynchronous because it automatically batches concurrent requests; use with `await`. 
