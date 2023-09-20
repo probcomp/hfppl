@@ -11,7 +11,7 @@ setup(
     packages=setuptools.find_packages(),
     install_requires=['torch',
                       'numpy',
-                      'transformers',
+                      'transformers==4.30',
                       'bitsandbytes',
                       'accelerate',
                       'sentencepiece'
