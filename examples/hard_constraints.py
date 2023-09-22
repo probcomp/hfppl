@@ -1,6 +1,6 @@
 import string
 import asyncio
-from hfppl import Model, CachedCausalLM, Token, StatefulLM, smc_standard
+from hfppl import Model, CachedCausalLM, Token, LMContext, smc_standard
 
 import os
 HF_AUTH_TOKEN = os.environ['HF_AUTH_TOKEN']
@@ -21,18 +21,16 @@ MASKS = {i : set(j for (j,v) in enumerate(LLM.vocab)
 class ConstraintModel(Model):
     def __init__(self, prompt, max_tokens):
         super().__init__()
-        self.lm         = StatefulLM(LLM, prompt)
-        self.q          = StatefulLM(LLM, prompt)
-        self.prompt_len = len(str(self.lm.s))
+        self.context = LMContext(LLM, prompt)
+        self.q       = LMContext(LLM, prompt)
         self.max_tokens = max_tokens
-        
 
     async def step(self):
         # Which tokens are allowed?
         mask = self.active_constraint_mask()
         
         # Generate proposed token.
-        token = await self.sample(self.lm.next_token(), 
+        token = await self.sample(self.context.next_token(), 
                                   proposal = await self.proposal(mask))
 
         # Condition on constraint — a no-op since proposal already guarantees the constraint
@@ -41,8 +39,7 @@ class ConstraintModel(Model):
         # Reduce number of max tokens remaining
         self.max_tokens -= 1
         
-        #if self.max_tokens % 5 == 0:
-        print(str(self.lm.s)[self.prompt_len:])
+        print(f"{self.context}")
 
         # Check if done
         if token == LLM.tokenizer.eos_token_id or self.max_tokens == 0:
@@ -50,15 +47,15 @@ class ConstraintModel(Model):
             return
     
     def active_constraint_mask(self):
-        string_so_far = str(self.lm.s)
+        string_so_far = str(self.context.s)
         words = string_so_far.split()
         last_word = words[-1] if len(words) > 0 else ""
         return MASKS[min(5, len(last_word))]
     
     async def proposal(self, mask):
-        string_so_far = str(self.lm.s)
+        string_so_far = str(self.context)
         
-        # Force the proposal StatefulLM to adhere to this mask
+        # Force the proposal LMContext to adhere to this mask
         await self.intervene(self.q.mask_dist(mask), True)
         
         # Return the proposal's modified next-token distribution
@@ -80,6 +77,6 @@ async def main():
     constraint_model = ConstraintModel(prompt, 50)
     particles = await smc_standard(constraint_model, 40)
     for p in particles:
-        print(str(p.lm.s)[p.prompt_len:])
+        print(f"{p.context}")
 
 asyncio.run(main())
