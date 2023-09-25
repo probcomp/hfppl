@@ -1,3 +1,4 @@
+import numpy as np
 from .distribution import Distribution
 
 class LogCategorical(Distribution):
