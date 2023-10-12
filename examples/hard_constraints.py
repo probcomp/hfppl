@@ -1,7 +1,7 @@
 import string
 import asyncio
 from hfppl import Model, CachedCausalLM, Token, LMContext, smc_standard
-
+from hfppl.util import show_graph
 
 # Load the language model. 
 # Vicuna is an open model; to use a model with restricted access, like LLaMA 2,
@@ -76,5 +76,7 @@ async def main():
     particles = await smc_standard(constraint_model, 40)
     for p in particles:
         print(f"{p.context}")
+
+    show_graph(LLM)
 
 asyncio.run(main())

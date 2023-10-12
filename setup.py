@@ -1,3 +1,4 @@
+import setuptools
 from setuptools import setup
 
 setup(
@@ -14,7 +15,9 @@ setup(
                       'transformers==4.30',
                       'bitsandbytes',
                       'accelerate',
-                      'sentencepiece'
+                      'sentencepiece',
+                      'networkx',
+                      'matplotlib'
                       ],
 
     classifiers=[
