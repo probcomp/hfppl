@@ -23,15 +23,30 @@ from synchromesh.synchromesh import StreamingCSD
 
 
 class GrammarConstrainedSMC(Model):
-    def __init__(self, lm: CachedCausalLM, grammar: str, start_rule: str, prompt: str = None, allow_ws: bool = False, max_tokens: int = 32, verbose: bool = False):
+    def __init__(
+        self,
+        lm: CachedCausalLM,
+        grammar: str,
+        start_rule: str,
+        prompt: str = None,
+        allow_ws: bool = False,
+        max_tokens: int = 32,
+        verbose: bool = False,
+    ):
         super().__init__()
         self.lm = lm
         self.grammar = grammar
         self.context = LMContext(lm, prompt)
         self.vocab = self.lm.vocab
 
-        self.comp_engine = LarkCompletionEngine(grammar, start_token=start_rule, allow_ws=allow_ws)
-        self.csd = StreamingCSD(completion_engine=self.comp_engine, lm_vocabulary=self.vocab, enforce_token_maximality=False)
+        self.comp_engine = LarkCompletionEngine(
+            grammar, start_token=start_rule, allow_ws=allow_ws
+        )
+        self.csd = StreamingCSD(
+            completion_engine=self.comp_engine,
+            lm_vocabulary=self.vocab,
+            enforce_token_maximality=False,
+        )
 
         self.max_tokens = max_tokens
         self.n_tokens = 0
@@ -40,7 +55,9 @@ class GrammarConstrainedSMC(Model):
 
     async def step(self):
         valid_token_ids = self.csd.get_valid_tokens()
-        valid_token_ids = sorted([t for t in valid_token_ids if t is not None]) # TODO: Bug in synchromesh
+        valid_token_ids = sorted(
+            [t for t in valid_token_ids if t is not None]
+        )  # TODO: Bug in synchromesh
         # valid_tokens = [self.vocab[t] for t in valid_token_ids]
 
         # Sample a token from the valid tokens
@@ -74,6 +91,7 @@ class GrammarConstrainedSMC(Model):
             ]
         )
 
+
 EXAMPLE_PROMPT = """Paraphrase the following sentences
 Human:who teaches CSE101?
 Bot:instructor of CSE101
@@ -89,8 +107,20 @@ EXAMPLE_GRAMMAR = r"""
     code: /[0-9]{3}/
 """
 
-async def run_generation(model: str, grammar: str, start_rule: str, prompt: str = None, allow_ws: bool = False, n_particles: int = 5, max_tokens: int = 32, verbose: bool = False):
-    LLM = CachedCausalLM.from_pretrained(args.model, auth_token=os.getenv("HF_AUTH_TOKEN"))
+
+async def run_generation(
+    model: str,
+    grammar: str,
+    start_rule: str,
+    prompt: str = None,
+    allow_ws: bool = False,
+    n_particles: int = 5,
+    max_tokens: int = 32,
+    verbose: bool = False,
+):
+    LLM = CachedCausalLM.from_pretrained(
+        args.model, auth_token=os.getenv("HF_AUTH_TOKEN")
+    )
     LLM.batch_size = args.batch_size
     model = GrammarConstrainedSMC(
         lm=LLM,
