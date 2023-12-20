@@ -54,11 +54,8 @@ class GrammarConstrainedSMC(Model):
         self.verbose = verbose
 
     async def step(self):
+        # Get valid tokens for next step
         valid_token_ids = self.csd.get_valid_tokens()
-        valid_token_ids = sorted(
-            [t for t in valid_token_ids if t is not None]
-        )  # TODO: Bug in synchromesh
-        # valid_tokens = [self.vocab[t] for t in valid_token_ids]
 
         # Sample a token from the valid tokens
         await self.observe(self.context.mask_dist(set(valid_token_ids)), True)
