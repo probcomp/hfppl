@@ -57,6 +57,13 @@ class GrammarConstrainedSMC(Model):
         # Get valid tokens for next step
         valid_token_ids = self.csd.get_valid_tokens()
 
+        # No valid next tokens
+        if len(valid_token_ids) == 0:
+            if not self.csd.is_complete():
+                self.condition(False)
+            self.finish()
+            return
+
         # Sample a token from the valid tokens
         await self.observe(self.context.mask_dist(set(valid_token_ids)), True)
         token = await self.sample(self.context.next_token())
@@ -68,14 +75,8 @@ class GrammarConstrainedSMC(Model):
         if self.verbose:
             print(str(self.context))
 
-        # Check if generation is a full completion in the grammar
-        if self.csd.is_complete():
-            self.finish()
-        # Check for end of sentence
-        elif token.token_id == self.lm.tokenizer.eos_token_id:
-            self.finish()
         # Max tokens reached
-        elif self.n_tokens >= self.max_tokens:
+        if self.n_tokens >= self.max_tokens:
             self.condition(False)
             self.finish()
 
