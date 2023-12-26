@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "hfppl"
+version = "0.1.0"
+description = "Probabilistic programming with HuggingFace Transformer models."
+authors = [
+    "Alex Lew <alexlew@mit.edu>",
+    "Gabriel Grand <grandg@mit.edu>",
+]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "hfppl"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = "^2.1.2"
+numpy = "^1.26.2"
+transformers = "^4.36.2"
+bitsandbytes = "^0.41.3.post2"
+accelerate = "^0.25.0"
+sentencepiece = "^0.1.99"
+scipy = "^1.11.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
