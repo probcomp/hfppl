@@ -38,6 +38,7 @@ class GrammarConstrainedSMC(Model):
         self.grammar = grammar
         self.context = LMContext(lm, prompt)
         self.vocab = self.lm.vocab
+        self.eos_token_id = self.lm.tokenizer.eos_token_id
 
         self.comp_engine = LarkCompletionEngine(
             grammar, start_token=start_rule, allow_ws=allow_ws
@@ -57,16 +58,23 @@ class GrammarConstrainedSMC(Model):
         # Get valid tokens for next step
         valid_token_ids = self.csd.get_valid_tokens()
 
-        # No valid next tokens
+        # If generation is a complete derivation, allow the end-of-string token
+        if self.csd.is_complete():
+            valid_token_ids += [self.eos_token_id]
+
+        # If no valid next tokens, reject and terminate
         if len(valid_token_ids) == 0:
-            if not self.csd.is_complete():
-                self.condition(False)
-            self.finish()
+            self.condition(False)
             return
 
         # Sample a token from the valid tokens
         await self.observe(self.context.mask_dist(set(valid_token_ids)), True)
         token = await self.sample(self.context.next_token())
+
+        # If the token is the end-of-string token, accept and terminate
+        if token.token_id == self.eos_token_id:
+            self.finish()
+            return
 
         # Feed the token to StreamingCSD
         self.csd.feed_prediction(token.token_id)
@@ -181,6 +189,11 @@ if __name__ == "__main__":
         help="Maximum number of tokens to generate",
     )
     parser.add_argument(
+        "--allow-ws",
+        action="store_true",
+        help="Allow whitespace",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print intermediate generations",
@@ -204,6 +217,7 @@ if __name__ == "__main__":
             prompt=prompt,
             n_particles=args.n_particles,
             max_tokens=args.max_tokens,
+            allow_ws=args.allow_ws,
             verbose=args.verbose,
         )
     )
