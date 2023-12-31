@@ -10,18 +10,21 @@ This repository implements LLaMPPL for use with HuggingFace Transformers.
 
 If you just want to try out LLaMPPL, check out our [demo notebook on Colab](https://colab.research.google.com/drive/1uJEC-U8dcwsTWccCDGVexpgXexzZ642n?usp=sharing), which performs a simple constrained generation task using GPT-2. (Larger models may require more RAM or GPU resources than Colab's free version provides.)
 
-To get started on your own machine, clone this repository and run `pip install .` (or `pip install -e .` if you plan to modify the library).
+> [!NOTE]
+> We use [poetry](https://python-poetry.org/) to manage dependencies. If you don't have poetry installed, you can install it with `pip install poetry`.
+
+To get started on your own machine, clone this repository and run `poetry install` to install `hfppl` and its dependencies.
 
 ```
 git clone https://github.com/probcomp/hfppl
 cd hfppl
-pip install .
+poetry install
 ```
 
 Then, try running an example. Note that this will cause the weights for Vicuna-7b-v1.5 to be downloaded.
 
 ```
-python examples/hard_constraints.py
+poetry run python examples/hard_constraints.py
 ```
 
 If everything is working, you should see the model generate political news using words that are at most five letters long (e.g., "Dr. Jill Biden may still be a year away from the White House but she is set to make her first trip to the U.N. today.").
@@ -44,18 +47,18 @@ class MyModel(Model):
         # A stateful context object for the LLM, initialized with the prompt
         self.context = LMContext(lm, prompt)
         self.lm = lm
-        
+
         # The forbidden letter
         self.forbidden_tokens = [i for (i, v) in enumerate(lm.vocab)
                                    if forbidden_letter in v]
-    
+
     # The step method is used to perform a single 'step' of generation.
     # This might be a single token, a single phrase, or any other division.
     # Here, we generate one token at a time.
     async def step(self):
         # Sample a token from the LLM -- automatically extends `self.context`.
         # We use `await` so that LLaMPPL can automatically batch language model calls.
-        token = await self.sample(self.context.next_token(), 
+        token = await self.sample(self.context.next_token(),
                                   proposal=self.proposal())
 
         # Condition on the token not having the forbidden letter
@@ -65,7 +68,7 @@ class MyModel(Model):
         if token.token_id == self.lm.tokenizer.eos_token_id or str(token) in ['.', '!', '?']:
             # Finish generation
             self.finish()
-    
+
     # Helper method to define a custom proposal
     def proposal(self):
         logits = self.context.next_token_logprobs.copy()

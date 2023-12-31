@@ -6,18 +6,20 @@ One easy way to try LLaMPPL out is to use a Colab notebook. We have [a demo note
 
 ## Installing LLaMPPL
 
-To get started, clone the `hfppl` repository and install the `hfppl` package:
+To get started, clone the `hfppl` repository and install the `hfppl` package.
 
 ```bash
 git clone https://github.com/probcomp/hfppl
 cd hfppl
-pip install .
+poetry install
 ```
+
+We use [poetry](https://python-poetry.org/) to manage dependencies. If you don't have poetry installed, you can install it with `pip install poetry`.
 
 You can then run an example. The first time you run it, the example may ask to downlaod model weights from the HuggingFace model repository.
 
-```
-python examples/hard_constraints.py
+```bash
+poetry run python examples/hard_constraints.py
 ```
 
 Depending on your available GPU memory, you may wish to edit the example to change parameters such as the batch size, or which HuggingFace model to use. The `hard_constraints.py` example has been run successfully on an NVIDIA L4 GPU (with 24 GB of VRAM) on Google Cloud.
