@@ -10,18 +10,21 @@ This repository implements LLaMPPL for use with HuggingFace Transformers.
 
 If you just want to try out LLaMPPL, check out our [demo notebook on Colab](https://colab.research.google.com/drive/1uJEC-U8dcwsTWccCDGVexpgXexzZ642n?usp=sharing), which performs a simple constrained generation task using GPT-2. (Larger models may require more RAM or GPU resources than Colab's free version provides.)
 
-To get started on your own machine, clone this repository and run `pip install .` (or `pip install -e .` if you plan to modify the library).
+> [!NOTE]
+> We use [poetry](https://python-poetry.org/) to manage dependencies. If you don't have poetry installed, you can install it with `pip install poetry`.
+
+To get started on your own machine, clone this repository and run `poetry install` to install `hfppl` and its dependencies.
 
 ```
 git clone https://github.com/probcomp/hfppl
 cd hfppl
-pip install .
+poetry install
 ```
 
 Then, try running an example. Note that this will cause the weights for Vicuna-7b-v1.5 to be downloaded.
 
 ```
-python examples/hard_constraints.py
+poetry run python examples/hard_constraints.py
 ```
 
 If everything is working, you should see the model generate political news using words that are at most five letters long (e.g., "Dr. Jill Biden may still be a year away from the White House but she is set to make her first trip to the U.N. today.").
