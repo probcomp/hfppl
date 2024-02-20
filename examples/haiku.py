@@ -31,6 +31,11 @@ else:
 LLM.batch_size = 40
 
 # Example poems for the prompt.
+# Authors:
+#   - Amy Lowell
+#   - Sonia Sanchez
+#   - Katsushika Hokusai
+#   - Matsuo Basho
 # Note that not all of these follow the syllabic constraints of a Haiku; the goal is
 # to encode a certain 'poetic style' but to leave the syllabic constraints to be enforced
 # by the probabilistic program (enabling generalization to other syllabic constraints).
@@ -46,11 +51,6 @@ love between us is
 speech and breath. loving you is
 a long river running.
 
-3. "Keys"
-I search for my keys
-in a million places, but
-they are in my hand.
-
 3. "Practice"
 I write, erase, rewrite
 Erase again, and then
@@ -58,14 +58,14 @@ A poppy blooms.
 
 4. "Caterpillar"
 A caterpillar,
-this deep in fall –
+this deep in fall,
 still not a butterfly."""
 
 # Ask user for poem title (without newline)
 poem_title = input("Enter a title for your Haiku: ")
 poem_prompt = f"""{example_poems}
 
-5. {poem_title}
+5. "{poem_title}"
 """
 
 # Cache prompt for faster generation
