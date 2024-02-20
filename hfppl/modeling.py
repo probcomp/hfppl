@@ -1,5 +1,71 @@
 import copy
 
+class SubModel:
+
+    def __init__(self):
+        self.parent = None
+    
+    async def run_with_parent(self, parent):
+        old_parent = self.parent
+        self.parent = parent
+        val = await self.forward()
+        self.parent = old_parent
+        return val
+
+    async def forward(self):
+        raise NotImplementedError("SubModel.forward() must be implemented by subclasses")
+
+    async def sample(self, dist, proposal=None):
+        return await self.parent.sample(dist, proposal)
+    
+    async def observe(self, dist, x):
+        return await self.parent.observe(dist, x)
+    
+    async def intervene(self, dist, x):
+        return await self.parent.intervene(dist, x)
+    
+    def condition(self, b):
+        return self.parent.condition(b)
+    
+    def score(self, score):
+        return self.parent.score(score)
+    
+    def twist(self, amt):
+        return self.parent.twist(amt)
+    
+    async def call(self, submodel):
+        return (await submodel.run_with_parent(self.parent))
+
+# For use as a decorator
+import functools
+
+def submodel(f):
+    """Decorator to create a SubModel implementation from an async function.
+    
+    For example:
+    
+    ```python
+    @submodel
+    async def sample_two_tokens(self, context):
+        token1 = await self.sample(context.next_token())
+        token2 = await self.sample(context.next_token())
+        return token1, token2
+    ```
+
+    This SubModel can then be used from another model or submodel, using the syntax `await self.call(sample_two_tokens(context))`.
+    """
+    @functools.wraps(f, updated=()) # unclear if this is the best way to do it
+    class SubModelImpl(SubModel):
+        def __init__(self, *args, **kwargs):
+            super().__init__()
+            self.args = args
+            self.kwargs = kwargs
+            
+        async def forward(self):
+            return (await f(self, *self.args, **self.kwargs))
+    
+    return SubModelImpl
+
 class Model:
     """Base class for all LLaMPPL models.
     
@@ -181,3 +247,6 @@ class Model:
             p = await dist.log_prob(x)
             self.score(p - q)
             return x
+    
+    async def call(self, submodel):
+        return await submodel.run_with_parent(self)

@@ -90,7 +90,7 @@ class Haiku(Model):
         while syllables_remaining > 0:
             
             # Sample a word
-            word, punctuation = await sample_word(self, self.context)
+            word, punctuation = await self.call(sample_word(self.context))
 
             # Subtract syllables from the remaining count
             syllables_remaining -= count_syllables(word)
