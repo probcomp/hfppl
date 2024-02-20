@@ -6,3 +6,4 @@ from .llms import *
 from .distributions import *
 from .modeling import *
 from .inference import *
+from .chunks import *

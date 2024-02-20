@@ -1,15 +1,18 @@
 import string
 import asyncio
-from hfppl import Model, CachedCausalLM, Token, LMContext, smc_standard
+from hfppl import Model, CachedCausalLM, LMContext, smc_standard
 
 import os
-HF_AUTH_TOKEN = os.environ['HF_AUTH_TOKEN']
+
+if 'HF_AUTH_TOKEN' in os.environ:
+    HF_AUTH_TOKEN = os.environ['HF_AUTH_TOKEN']
 
 # Load the language model. 
-# Vicuna is an open model; to use a model with restricted access, like LLaMA 2,
+# Mistral and Vicuna are open models; to use a model with restricted access, like LLaMA 2,
 # pass your HuggingFace API key as the optional `auth_token` argument:
-LLM = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", auth_token=HF_AUTH_TOKEN)
+# LLM = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", auth_token=HF_AUTH_TOKEN)
 # LLM = CachedCausalLM.from_pretrained("lmsys/vicuna-7b-v1.5")
+LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
 LLM.batch_size = 40
 
 MASKS = {i : set(j for (j,v) in enumerate(LLM.vocab)
@@ -22,19 +25,17 @@ class ConstraintModel(Model):
     def __init__(self, prompt, max_tokens):
         super().__init__()
         self.context = LMContext(LLM, prompt)
-        self.q       = LMContext(LLM, prompt)
         self.max_tokens = max_tokens
 
     async def step(self):
         # Which tokens are allowed?
         mask = self.active_constraint_mask()
+
+        # Condition on next token being from mask
+        await self.observe(self.context.mask_dist(mask), True)
         
         # Generate proposed token.
-        token = await self.sample(self.context.next_token(), 
-                                  proposal = await self.proposal(mask))
-
-        # Condition on constraint — a no-op since proposal already guarantees the constraint
-        self.condition(token.token_id in mask)
+        token = await self.sample(self.context.next_token())
         
         # Reduce number of max tokens remaining
         self.max_tokens -= 1
@@ -47,20 +48,10 @@ class ConstraintModel(Model):
             return
     
     def active_constraint_mask(self):
-        string_so_far = str(self.context.s)
+        string_so_far = str(self.context)
         words = string_so_far.split()
         last_word = words[-1] if len(words) > 0 else ""
         return MASKS[min(5, len(last_word))]
-    
-    async def proposal(self, mask):
-        string_so_far = str(self.context)
-        
-        # Force the proposal LMContext to adhere to this mask
-        await self.intervene(self.q.mask_dist(mask), True)
-        
-        # Return the proposal's modified next-token distribution
-        return self.q.next_token()
-
         
 # From Politico.com
 prompt = """3 things to watch …

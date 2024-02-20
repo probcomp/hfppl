@@ -3,6 +3,16 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import asyncio
+import string
+
+class Masks:
+    def __init__(self, lm):
+        self.ALL_TOKENS = set(range(len(lm.vocab)))
+        self.STARTS_NEW_WORD = set(i for (i,v) in enumerate(lm.vocab) if v[0]==' ' and len(v) > 1 and v[1] not in string.whitespace and v[1] not in string.punctuation)
+        self.CONTINUES_CURRENT_WORD = set(i for (i,v) in enumerate(lm.vocab) if all(c in '\'' or c.isalpha() for c in v))
+        self.PUNCTUATION = set(i for (i,v) in enumerate(lm.vocab) if v in ',:;.!?"-')
+        self.END_SENTENCE_PUNCT = set(i for (i, v) in enumerate(lm.vocab) if v in '.!?')
+
 
 class TokenSequence:
     """A sequence of tokens.
@@ -106,7 +116,6 @@ class Token:
     def __repr__(self):
         return f"<{self.token_str}|{self.token_id}>"
 
-
 class TokenTrie:
     """Class used internally to cache language model results."""
     # Trie of tokens.
@@ -146,7 +155,6 @@ class TokenTrie:
             node = node.add_token(token_id, token_logprobs.cpu().numpy())
         
         return node
-    
 
 class Query:
     """A query to a language model, waiting to be batched."""
@@ -210,9 +218,12 @@ class CachedCausalLM:
         Returns:
             model (hfppl.llms.CachedCausalLM): the LLaMPPL-compatible interface to the HuggingFace model.
         """
-        with torch.no_grad():
+        if not auth_token:
+            tok = AutoTokenizer.from_pretrained(model_id)
+            mod = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", load_in_8bit=load_in_8bit)
+        else:
             tok = AutoTokenizer.from_pretrained(model_id, use_auth_token=auth_token)
-            mod = AutoModelForCausalLM.from_pretrained(model_id, do_sample=True, use_auth_token=auth_token, device_map="auto", load_in_8bit=load_in_8bit)
+            mod = AutoModelForCausalLM.from_pretrained(model_id, use_auth_token=auth_token, device_map="auto", load_in_8bit=load_in_8bit)
         
         return CachedCausalLM(mod, tok)
     
@@ -244,6 +255,9 @@ class CachedCausalLM:
         bos_len    = len(self.tokenizer.decode([self.tokenizer.bos_token_id]))
         self.vocab = [self.tokenizer.decode([self.tokenizer.bos_token_id,i])[bos_len:] for i in range(len(hf_tokenizer.vocab))]
         
+        # Precompute useful masks
+        self.masks = Masks(self)
+
         # Queries to be batched. Each query is a sequence of tokens,
         # and a Future to be called when the query is resolved.
         self.queries = []
