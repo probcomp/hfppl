@@ -16,6 +16,7 @@ class Masks:
         self.CONTINUES_CURRENT_WORD = set(i for (i,v) in enumerate(lm.vocab) if all(c in '\'' or c.isalpha() for c in v))
         self.PUNCTUATION = set(i for (i,v) in enumerate(lm.vocab) if v in ',:;.!?"-')
         self.END_SENTENCE_PUNCT = set(i for (i, v) in enumerate(lm.vocab) if v in '.!?')
+        self.ENDS_SENTENCE = set(i for (i, v) in enumerate(lm.vocab) if v[-1] in self.END_SENTENCE_PUNCT)
 
         self.MAX_TOKEN_LENGTH = self.precompute_token_length_masks(lm)
 
