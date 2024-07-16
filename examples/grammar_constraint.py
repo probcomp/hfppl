@@ -9,6 +9,7 @@ language model vocabulary.
 
 Requires synchromesh (github.com/kanishkg/synchromesh)
 """
+
 import asyncio
 import os
 from typing import List

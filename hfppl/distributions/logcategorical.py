@@ -1,13 +1,14 @@
 from .distribution import Distribution
 
+
 class LogCategorical(Distribution):
     """A Geometric distribution."""
 
     def __init__(self, logits):
-        """Create a Categorical distribution from unnormalized log probabilities (logits). 
+        """Create a Categorical distribution from unnormalized log probabilities (logits).
         Given an array of logits, takes their `softmax` and samples an integer in `range(len(logits))`
         from the resulting categorical.
-        
+
         Args:
             logits (np.array): a numpy array of unnormalized log probabilities.
         """
@@ -19,6 +20,6 @@ class LogCategorical(Distribution):
 
     async def log_prob(self, value):
         return self.log_probs[value]
-    
+
     async def argmax(self, idx):
         return np.argsort(self.log_probs)[-idx]
