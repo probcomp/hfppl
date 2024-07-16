@@ -2,9 +2,10 @@ import copy
 from ..util import logsumexp
 import numpy as np
 import asyncio
+from .smc_record import SMCRecord
 
 
-async def smc_standard(model, n_particles, ess_threshold=0.5):
+async def smc_standard(model, n_particles, ess_threshold=0.5, record=False):
     """
     Standard sequential Monte Carlo algorithm with multinomial resampling.
 
@@ -17,13 +18,24 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
-    weights = [0.0 for _ in range(n_particles)]
+    history = SMCRecord(n_particles) if record else None
 
+    ancestor_indices = list(range(n_particles))
+    did_resample = False
     while any(map(lambda p: not p.done_stepping(), particles)):
         # Step each particle
         for p in particles:
             p.untwist()
         await asyncio.gather(*[p.step() for p in particles if not p.done_stepping()])
+
+        # Record history
+        if record:
+            if len(history.history) == 0:
+                history.add_init(particles)
+            elif did_resample:
+                history.add_resample(ancestor_indices, particles)
+            else:
+                history.add_smc_step(particles)
 
         # Normalize weights
         W = np.array([p.weight for p in particles])
@@ -36,14 +48,25 @@ async def smc_standard(model, n_particles, ess_threshold=0.5):
         ):
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(normalized_weights)
-            particles = [
-                copy.deepcopy(
-                    particles[np.random.choice(range(len(particles)), p=probs)]
-                )
+            ancestor_indices = [
+                np.random.choice(range(len(particles)), p=probs)
                 for _ in range(n_particles)
             ]
+
+            if record:
+                # Sort the ancestor indices
+                ancestor_indices.sort()
+
+            particles = [copy.deepcopy(particles[i]) for i in ancestor_indices]
             avg_weight = w_sum - np.log(n_particles)
             for p in particles:
                 p.weight = avg_weight
+
+            did_resample = True
+        else:
+            did_resample = False
+
+    if record:
+        return particles, history
 
     return particles

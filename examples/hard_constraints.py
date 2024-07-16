@@ -61,6 +61,9 @@ class ConstraintModel(Model):
         last_word = words[-1] if len(words) > 0 else ""
         return MASKS[min(5, len(last_word))]
 
+    def string_for_serialization(self):
+        return f"<<<>>>{self.context}"
+
 
 # From Politico.com
 prompt = """3 things to watch …
@@ -76,9 +79,12 @@ LLM.cache_kv(LLM.tokenizer.encode(prompt))
 
 async def main():
     constraint_model = ConstraintModel(prompt, 50)
-    particles = await smc_standard(constraint_model, 40)
+    particles, record = await smc_standard(constraint_model, 40, 0.5, True)
     for p in particles:
         print(f"{p.context}")
+    # Save JSON to file
+    with open("output.json", "w") as f:
+        f.write(record.to_json())
 
 
 asyncio.run(main())
