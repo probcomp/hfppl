@@ -2,6 +2,7 @@ from .distribution import Distribution
 from ..util import log_softmax
 from ..llms import Token
 import numpy as np
+import torch
 
 
 class TokenCategorical(Distribution):
