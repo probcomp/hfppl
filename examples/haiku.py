@@ -138,15 +138,13 @@ class Haiku(Model):
 
 # Run inference
 SYLLABLES_PER_LINE = [5, 7, 5]  # [5, 3, 5] for a Lune
-particles, record = asyncio.run(
-    smc_standard(Haiku(poem_prompt, SYLLABLES_PER_LINE), 100, 0.5, True)
+particles = asyncio.run(
+    smc_standard(
+        Haiku(poem_prompt, SYLLABLES_PER_LINE), 20, 0.5, "html", "results/haiku.json"
+    )
 )
 
-print("--------")
-for i, particle in enumerate(particles):
-    print(f"Poem {i} (weight {particle.weight}):")
-    print(f"{particle.context}")
-
-# Save record as JSON
-with open("html/results/haiku.json", "w") as f:
-    f.write(record.to_json())
+# print("--------")
+# for i, particle in enumerate(particles):
+#     print(f"Poem {i} (weight {particle.weight}):")
+#     print(f"{particle.context}")

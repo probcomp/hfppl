@@ -10,8 +10,10 @@ if "HF_AUTH_TOKEN" in os.environ:
 # Load the language model.
 # Mistral and Vicuna are open models; to use a model with restricted access, like LLaMA 2,
 # pass your HuggingFace API key as the optional `auth_token` argument:
-# LLM = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", auth_token=HF_AUTH_TOKEN)
-LLM = CachedCausalLM.from_pretrained("lmsys/vicuna-7b-v1.5")
+LLM = CachedCausalLM.from_pretrained(
+    "meta-llama/Meta-Llama-3-8B", auth_token=HF_AUTH_TOKEN
+)
+# LLM = CachedCausalLM.from_pretrained("lmsys/vicuna-7b-v1.5")
 # LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
 LLM.batch_size = 40
 
@@ -35,13 +37,11 @@ class ConstraintModel(Model):
         self.context = LMContext(LLM, prompt)
         self.max_tokens = max_tokens
 
-    async def step(self):
-        # Which tokens are allowed?
+    async def start(self):
         mask = self.active_constraint_mask()
-
-        # Condition on next token being from mask
         await self.observe(self.context.mask_dist(mask), True)
 
+    async def step(self):
         # Generate proposed token.
         token = await self.sample(self.context.next_token())
 
@@ -55,6 +55,10 @@ class ConstraintModel(Model):
             self.finish()
             return
 
+        # Observe that next token follows the constraint.
+        mask = self.active_constraint_mask()
+        await self.observe(self.context.mask_dist(mask), True)
+
     def active_constraint_mask(self):
         string_so_far = str(self.context)
         words = string_so_far.split()
@@ -62,7 +66,7 @@ class ConstraintModel(Model):
         return MASKS[min(5, len(last_word))]
 
     def string_for_serialization(self):
-        return f"<<<>>>{self.context}"
+        return f"{self.context}"
 
 
 # From Politico.com
@@ -79,12 +83,11 @@ LLM.cache_kv(LLM.tokenizer.encode(prompt))
 
 async def main():
     constraint_model = ConstraintModel(prompt, 50)
-    particles, record = await smc_standard(constraint_model, 40, 0.5, True)
+    particles = await smc_standard(
+        constraint_model, 20, 0.5, "html", "results/output.json"
+    )
     for p in particles:
         print(f"{p.context}")
-    # Save JSON to file
-    with open("output.json", "w") as f:
-        f.write(record.to_json())
 
 
 asyncio.run(main())

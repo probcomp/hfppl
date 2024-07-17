@@ -150,7 +150,7 @@ class Model:
     def __str__(self):
         return "Particle"
 
-    def start(self):
+    async def start(self):
         pass
 
     def score(self, score):

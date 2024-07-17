@@ -7,16 +7,24 @@ class SMCRecord:
     def __init__(self, n):
         self.history = []
         self.most_recent_weights = [0.0 for _ in range(n)]
-        self.step_num = 0
+        self.step_num = 1
+
+    def prepare_string(self, s):
+        # If the string doesn't have <<< and >>>, prepend <<<>>> at the front.
+        if "<<<" not in s and ">>>" not in s:
+            return f"<<<>>>{s}"
+        return s
 
     def particle_dict(self, particles):
         return [
             {
-                "contents": p.string_for_serialization(),
+                "contents": self.prepare_string(p.string_for_serialization()),
                 "logweight": (
                     "-Infinity" if p.weight == float("-inf") else str(float(p.weight))
                 ),
-                "weight_incr": str(float(p.weight - self.most_recent_weights[i])),
+                "weight_incr": str(
+                    float(p.weight) - float(self.most_recent_weights[i])
+                ),
             }
             for (i, p) in enumerate(particles)
         ]
@@ -43,6 +51,7 @@ class SMCRecord:
         self.most_recent_weights = [p.weight for p in particles]
 
     def add_resample(self, ancestor_indices, particles):
+        self.step_num += 1
         self.most_recent_weights = [
             self.most_recent_weights[i] for i in ancestor_indices
         ]

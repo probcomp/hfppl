@@ -3,9 +3,12 @@ from ..util import logsumexp
 import numpy as np
 import asyncio
 from .smc_record import SMCRecord
+from datetime import datetime
 
 
-async def smc_standard(model, n_particles, ess_threshold=0.5, record=False):
+async def smc_standard(
+    model, n_particles, ess_threshold=0.5, visualization_dir=None, json_file=None
+):
     """
     Standard sequential Monte Carlo algorithm with multinomial resampling.
 
@@ -13,11 +16,15 @@ async def smc_standard(model, n_particles, ess_threshold=0.5, record=False):
         model (hfppl.modeling.Model): The model to perform inference on.
         n_particles (int): Number of particles to execute concurrently.
         ess_threshold (float): Effective sample size below which resampling is triggered, given as a fraction of `n_particles`.
+        visualization_dir (str): Path to the directory where the visualization server is running.
+        json_file (str): Path to the JSON file to save the record of the inference, relative to `visualization_dir` if provided.
 
     Returns:
         particles (list[hfppl.modeling.Model]): The completed particles after inference.
     """
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
+    await asyncio.gather(*[p.start() for p in particles])
+    record = visualization_dir is not None or json_file is not None
     history = SMCRecord(n_particles) if record else None
 
     ancestor_indices = list(range(n_particles))
@@ -67,6 +74,26 @@ async def smc_standard(model, n_particles, ess_threshold=0.5, record=False):
             did_resample = False
 
     if record:
-        return particles, history
+        # Figure out path to save JSON.
+        if visualization_dir is None:
+            json_path = json_file
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            json_relative = (
+                json_file
+                if json_file is not None
+                else f"{model.__class__.__name__}-{timestamp}.json"
+            )
+            json_path = f"{visualization_dir}/{json_file}"
+
+        # Save JSON
+        with open(json_path, "w") as f:
+            f.write(history.to_json())
+
+        # Web path is the part of the path after the html directory
+        if visualization_dir is not None:
+            print(f"Visualize at http://localhost:8000/smc.html?path={json_relative}")
+        else:
+            print(f"Saved record to {json_path}")
 
     return particles

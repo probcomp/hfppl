@@ -17,6 +17,10 @@
             fill: rgb(216, 184, 0);
         }
 
+        circle.particle.zeroweight {
+            fill: #ccc;
+        }
+
         path.parentline {
             fill: none;
             stroke: #BBE;
@@ -45,6 +49,10 @@
 
         tspan.modified-expr {
             font-weight: bold;
+        }
+
+        text.program.zeroweight {
+            fill: #ccc;
         }
 
         text.program.highlighted {
@@ -227,17 +235,17 @@
 
                 // show "SMC Step" or "Resample" etc
                 frame_foreground.append("text")
-                    .attr("transform", `translate(${state.x - 160 - 300 - 180},${state.y - 30})`)
+                    .attr("transform", `translate(${state.x - 180},${state.y})`)
                     .text(`Step ${state.step}`)
                     .attr("text-anchor", "middle")
                     .style("font-size", 40)
 
                 // show "SMC Step" or "Resample" etc
-                frame_foreground.append("text")
-                    .attr("transform", `translate(${state.x - 160 - 300 - 180},${state.y + 20})`)
-                    .text("(" + state.mode.replace(/_/g, ' ') + ")")
-                    .attr("text-anchor", "middle")
-                    .style("font-size", 40)
+                // frame_foreground.append("text")
+                //     .attr("transform", `translate(${state.x - 160 - 300 - 180},${state.y + 20})`)
+                //     .text("(" + state.mode.replace(/_/g, ' ') + ")")
+                //     .attr("text-anchor", "middle")
+                //     .style("font-size", 40)
 
                 for (const particle of particles) {
                     particle.g = frame_foreground
@@ -251,6 +259,7 @@
                     particle.circle = particle.g
                         .append("circle")
                         .classed("particle", true)
+                        .classed("zeroweight", particle.relative_weight == 0)
                         .attr("r", r * Math.sqrt(particle.relative_weight / largest_relweight) + 3)
 
 
@@ -260,6 +269,7 @@
                         // .attr("x", r * 2)
                         .attr("x", state_xspace - particle.x)
                         .attr("y", r / 2)
+                        .classed("zeroweight", particle.relative_weight == 0)
                     particle.text
                         .append("tspan")
                         .text(particle.prefix)
