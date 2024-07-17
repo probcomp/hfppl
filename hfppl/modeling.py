@@ -150,7 +150,7 @@ class Model:
     def __str__(self):
         return "Particle"
 
-    def start(self):
+    async def start(self):
         pass
 
     def score(self, score):
@@ -256,3 +256,11 @@ class Model:
 
     async def call(self, submodel):
         return await submodel.run_with_parent(self)
+
+    def string_for_serialization(self):
+        """Return a string representation of the particle for serialization purposes.
+
+        Returns:
+            str: a string representation of the particle.
+        """
+        return str(self)

@@ -68,9 +68,7 @@ async def smc_steer(model, n_particles, n_beam):
     """
     # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
-
-    for particle in particles:
-        particle.start()  # TODO: allow to be async?
+    await asyncio.gather(*[p.start() for p in particles])
 
     while any(map(lambda p: not p.done_stepping(), particles)):
         # Count the number of finished particles
