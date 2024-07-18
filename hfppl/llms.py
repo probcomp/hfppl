@@ -14,9 +14,12 @@ class Masks:
         self.ALL_TOKENS = set(range(len(lm.vocab)))
         self.STARTS_NEW_WORD = set(i for (i,v) in enumerate(lm.vocab) if v[0]==' ' and len(v) > 1 and v[1] not in string.whitespace and v[1] not in string.punctuation)
         self.CONTINUES_CURRENT_WORD = set(i for (i,v) in enumerate(lm.vocab) if all(c in '\'' or c.isalpha() for c in v))
-        self.PUNCTUATION = set(i for (i,v) in enumerate(lm.vocab) if v in ',:;.!?"-')
-        self.END_SENTENCE_PUNCT = set(i for (i, v) in enumerate(lm.vocab) if v in '.!?')
-        self.ENDS_SENTENCE = set(i for (i, v) in enumerate(lm.vocab) if v[-1] in self.END_SENTENCE_PUNCT)
+        self.MID_PUNCTUATION = set(i for (i,v) in enumerate(lm.vocab) if v in (',', ':', ';', '-', '"'))
+        self.END_PUNCTUATION = set(i for (i,v) in enumerate(lm.vocab) if v in ('.', '!', '?'))
+        self.PUNCTUATION = self.MID_PUNCTUATION | self.END_PUNCTUATION
+        # self.PUNCTUATION = set(i for (i,v) in enumerate(lm.vocab) if v in ',:;.!?"-')
+        # self.END_SENTENCE_PUNCT = set(i for (i, v) in enumerate(lm.vocab) if v in '.!?')
+        self.CONTAINS_WHITESPACE = set(i for (i, v) in enumerate(lm.vocab) if any(c in string.whitespace for c in v))
 
         self.MAX_TOKEN_LENGTH = self.precompute_token_length_masks(lm)
 
