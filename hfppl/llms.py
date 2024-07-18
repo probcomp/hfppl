@@ -22,8 +22,37 @@ class Masks:
             for (i, v) in enumerate(lm.vocab)
             if all(c in "'" or c.isalpha() for c in v)
         )
-        self.PUNCTUATION = set(i for (i, v) in enumerate(lm.vocab) if v in ',:;.!?"-')
-        self.END_SENTENCE_PUNCT = set(i for (i, v) in enumerate(lm.vocab) if v in ".!?")
+        self.MID_PUNCTUATION = set(
+            i for (i, v) in enumerate(lm.vocab) if v in (",", ":", ";", "-", '"')
+        )
+        self.END_PUNCTUATION = set(
+            i for (i, v) in enumerate(lm.vocab) if v in (".", "!", "?")
+        )
+        self.PUNCTUATION = self.MID_PUNCTUATION | self.END_PUNCTUATION
+        self.CONTAINS_WHITESPACE = set(
+            i
+            for (i, v) in enumerate(lm.vocab)
+            if any(c in string.whitespace for c in v)
+        )
+
+        self.MAX_TOKEN_LENGTH = self.precompute_token_length_masks(lm)
+
+    def precompute_token_length_masks(self, lm) -> Dict[int, Set[int]]:
+        """Precompute masks for tokens of different lengths.
+
+        Each mask is a set of token ids that are of the given length or shorter."""
+        max_token_length = max([len(t) for t in lm.vocab])
+
+        masks = defaultdict(lambda: self.ALL_TOKENS)
+        masks[0] = set([lm.tokenizer.eos_token_id])
+        for token_length in range(1, max_token_length + 1):
+            masks[token_length] = set(
+                i
+                for (i, v) in enumerate(lm.vocab)
+                if len(v) <= token_length and i != lm.tokenizer.eos_token_id
+            )
+
+        return masks
 
 
 class TokenSequence:
