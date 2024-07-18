@@ -126,6 +126,7 @@ class LMContext:
         self.temp = temp
         self.model_mask = lm.masks.ALL_TOKENS
         self.prompt_string_length = len(lm.tokenizer.decode(self.tokens))
+        self.prompt_token_count = len(self.tokens)
         self.show_prompt = False
 
     def next_token(self):
@@ -147,6 +148,10 @@ class LMContext:
             mask: a `set(int)` specifying which token ids are included within the mask.
         """
         return LMTokenMask(self, mask)
+
+    @property
+    def token_count(self):
+        return len(self.tokens) - self.prompt_token_count
 
     def __str__(self):
         base = 0 if self.show_prompt else self.prompt_string_length
