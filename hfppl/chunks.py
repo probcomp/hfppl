@@ -39,8 +39,20 @@ async def sample_word(self, context, max_tokens=5, allow_punctuation=True):
 
 
 @submodel
-async def sample_word_2(self, context, max_chars: int = None, allow_punctuation: bool = True):
-    """Sample a word from the `LMContext` object `context`."""
+async def sample_word_2(self, context, max_chars: int = None, allow_mid_punctuation: bool = True, allow_end_punctuation: bool = True):
+    """Sample a word from the `LMContext` object `context`.
+
+    Unlike sample_word() above, this method allows for character-level control over the length of the word.
+    It also allows for control over the presence of punctuation in the middle and at the end of the word.
+
+    Args:
+        max_chars (int): Maximum number of characters in the word. If None, the model will sample a word of any length.
+        allow_mid_punctuation (bool): If True, the model may sample punctuation in the middle of the word.
+        allow_end_punctuation (bool): If True, the model may sample punctuation at the end of the word.
+
+    Returns:
+        Tuple[str, str]: The sampled word and punctuation
+    """
 
     # This approach sometimes breaks with max_chars = 1
     if max_chars is not None:
@@ -77,7 +89,14 @@ async def sample_word_2(self, context, max_chars: int = None, allow_punctuation:
 
     # Sample punctuation, if desired
     punctuation = ""
-    if allow_punctuation and await self.sample(context.mask_dist(context.lm.masks.END_PUNCTUATION)):
+
+    mask = set()
+    if allow_mid_punctuation:
+        mask = mask | context.lm.masks.MID_PUNCTUATION
+    if allow_end_punctuation:
+        mask = mask | context.lm.masks.END_PUNCTUATION
+
+    if mask and await self.sample(context.mask_dist(mask)):
         punctuation_token = await self.sample(context.next_token())
         punctuation = context.lm.vocab[punctuation_token.token_id]
 
