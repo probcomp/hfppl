@@ -12,14 +12,31 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 class Masks:
     def __init__(self, lm):
         self.ALL_TOKENS = set(range(len(lm.vocab)))
-        self.STARTS_NEW_WORD = set(i for (i,v) in enumerate(lm.vocab) if v[0]==' ' and len(v) > 1 and v[1] not in string.whitespace and v[1] not in string.punctuation)
-        self.CONTINUES_CURRENT_WORD = set(i for (i,v) in enumerate(lm.vocab) if all(c in '\'' or c.isalpha() for c in v))
-        self.MID_PUNCTUATION = set(i for (i,v) in enumerate(lm.vocab) if v in (',', ':', ';', '-', '"'))
-        self.END_PUNCTUATION = set(i for (i,v) in enumerate(lm.vocab) if v in ('.', '!', '?'))
+        self.STARTS_NEW_WORD = set(
+            i
+            for (i, v) in enumerate(lm.vocab)
+            if v[0] == " "
+            and len(v) > 1
+            and v[1] not in string.whitespace
+            and v[1] not in string.punctuation
+        )
+        self.CONTINUES_CURRENT_WORD = set(
+            i
+            for (i, v) in enumerate(lm.vocab)
+            if all(c in "'" or c.isalpha() for c in v)
+        )
+        self.MID_PUNCTUATION = set(
+            i for (i, v) in enumerate(lm.vocab) if v in (",", ":", ";", "-", '"')
+        )
+        self.END_PUNCTUATION = set(
+            i for (i, v) in enumerate(lm.vocab) if v in (".", "!", "?")
+        )
         self.PUNCTUATION = self.MID_PUNCTUATION | self.END_PUNCTUATION
-        # self.PUNCTUATION = set(i for (i,v) in enumerate(lm.vocab) if v in ',:;.!?"-')
-        # self.END_SENTENCE_PUNCT = set(i for (i, v) in enumerate(lm.vocab) if v in '.!?')
-        self.CONTAINS_WHITESPACE = set(i for (i, v) in enumerate(lm.vocab) if any(c in string.whitespace for c in v))
+        self.CONTAINS_WHITESPACE = set(
+            i
+            for (i, v) in enumerate(lm.vocab)
+            if any(c in string.whitespace for c in v)
+        )
 
         self.MAX_TOKEN_LENGTH = self.precompute_token_length_masks(lm)
 
@@ -32,7 +49,11 @@ class Masks:
         masks = defaultdict(lambda: self.ALL_TOKENS)
         masks[0] = set([lm.tokenizer.eos_token_id])
         for token_length in range(1, max_token_length + 1):
-            masks[token_length] = set(i for (i, v) in enumerate(lm.vocab) if len(v) <= token_length and i != lm.tokenizer.eos_token_id)
+            masks[token_length] = set(
+                i
+                for (i, v) in enumerate(lm.vocab)
+                if len(v) <= token_length and i != lm.tokenizer.eos_token_id
+            )
 
         return masks
 
@@ -55,7 +76,8 @@ class TokenSequence:
 
         Args:
             lm (hfppl.llms.CachedCausalLM): the language model whose vocabulary the tokens come from.
-            seq (str | list[int]): the sequence of token ids, or a string which will be automatically tokenized. Defaults to the singleton sequence containing a bos token."""
+            seq (str | list[int]): the sequence of token ids, or a string which will be automatically tokenized. Defaults to the singleton sequence containing a bos token.
+        """
         self.lm = lm
         if seq is None:
             self.seq = [lm.tokenizer.bos_token_id]
@@ -90,7 +112,10 @@ class TokenSequence:
             assert other.lm is self.lm
             return TokenSequence(self.lm, other.seq + self.seq)
         elif isinstance(other, str):
-            return TokenSequence(self.lm, self.lm.tokenizer.encode(other, add_special_tokens=False) + self.seq)
+            return TokenSequence(
+                self.lm,
+                self.lm.tokenizer.encode(other, add_special_tokens=False) + self.seq,
+            )
         elif isinstance(other, int):
             return TokenSequence(self.lm, [other, *self.seq])
         else:
@@ -101,17 +126,19 @@ class TokenSequence:
         s += other
         return s
 
+
 class Token:
     """Class representing a token.
 
     Attributes:
         lm (hfppl.llms.CachedCausalLM): the language model for which this is a Token.
         token_id (int): the integer token id (an index into the vocabulary).
-        token_str (str): a string, which the token represents—equal to `lm.vocab[token_id]`."""
+        token_str (str): a string, which the token represents—equal to `lm.vocab[token_id]`.
+    """
 
     def __init__(self, lm, token_id, token_str):
-        self.lm        = lm
-        self.token_id  = token_id
+        self.lm = lm
+        self.token_id = token_id
         self.token_str = token_str
 
     # Adding tokens
@@ -139,21 +166,32 @@ class Token:
     def __repr__(self):
         return f"<{self.token_str}|{self.token_id}>"
 
+
 class TokenTrie:
     """Class used internally to cache language model results."""
+
     # Trie of tokens.
 
     def __init__(self, parent=None, logprobs=None):
-        self.children = {} # maps token ID to child
+        self.children = {}  # maps token ID to child
         self.logprobs = logprobs  # for next token
         self.past_key_values = None
 
     def __repr__(self):
-        return f"{'*' if self.past_key_values is not None else ''}[" + ", ".join([f"{node_id}: {node.__repr__()}" for (node_id, node) in self.children.items()]) + "]"
+        return (
+            f"{'*' if self.past_key_values is not None else ''}["
+            + ", ".join(
+                [
+                    f"{node_id}: {node.__repr__()}"
+                    for (node_id, node) in self.children.items()
+                ]
+            )
+            + "]"
+        )
 
     def clear_kv_cache(self):
         self.past_key_values = None
-        for (child, node) in self.children.items():
+        for child, node in self.children.items():
             node.clear_kv_cache()
 
     def has_token(self, token_id):
@@ -166,18 +204,18 @@ class TokenTrie:
         self.children[token_id] = TokenTrie(self, logprobs)
         return self.children[token_id]
 
-
     def extend_cache(self, next_token_index, token_ids, logits, base):
         node = self
 
         for j in range(next_token_index, len(token_ids)):
-            token_id     = token_ids[j]
-            token_logits = logits[j-base]
-            token_logprobs  = torch.log_softmax(token_logits, 0)
+            token_id = token_ids[j]
+            token_logits = logits[j - base]
+            token_logprobs = torch.log_softmax(token_logits, 0)
 
             node = node.add_token(token_id, token_logprobs.cpu().numpy())
 
         return node
+
 
 class Query:
     """A query to a language model, waiting to be batched."""
@@ -188,32 +226,50 @@ class Query:
         self.past = past
 
         if self.past is not None:
-            self.past_len = past[0][0].shape[2] # layers, key or value, batch size, num heads, num tokens, head repr length
+            self.past_len = past[0][0].shape[
+                2
+            ]  # layers, key or value, batch size, num heads, num tokens, head repr length
         else:
             self.past_len = 0
 
     @torch.no_grad()
     def past_padded(self, layer, j, to_length, dtype, device, past_shape):
-
         if self.past is not None:
-            return torch.cat((self.past[layer][j], torch.zeros(1, past_shape[1], to_length-self.past_len, past_shape[3], dtype=dtype, device=device)),
-                             dim=2)
+            return torch.cat(
+                (
+                    self.past[layer][j],
+                    torch.zeros(
+                        1,
+                        past_shape[1],
+                        to_length - self.past_len,
+                        past_shape[3],
+                        dtype=dtype,
+                        device=device,
+                    ),
+                ),
+                dim=2,
+            )
         else:
-            return torch.zeros(1, past_shape[1], to_length, past_shape[3], dtype=dtype, device=device)
+            return torch.zeros(
+                1, past_shape[1], to_length, past_shape[3], dtype=dtype, device=device
+            )
 
     def prompt_padded(self, pad_token, to_length):
-        return [*self.prompt, *[pad_token for _ in range(to_length-len(self.prompt))]]
-
+        return [*self.prompt, *[pad_token for _ in range(to_length - len(self.prompt))]]
 
     def attention_mask(self, total_past_length, total_seq_length):
-        return [*[1 for _ in range(self.past_len)],
-                *[0 for _ in range(total_past_length-self.past_len)],
-                *[1 for _ in range(len(self.prompt))],
-                *[0 for _ in range(total_seq_length-len(self.prompt))]]
+        return [
+            *[1 for _ in range(self.past_len)],
+            *[0 for _ in range(total_past_length - self.past_len)],
+            *[1 for _ in range(len(self.prompt))],
+            *[0 for _ in range(total_seq_length - len(self.prompt))],
+        ]
 
     def position_ids(self, total_past_length, total_seq_length):
-        return [*range(self.past_len, self.past_len + len(self.prompt)),
-                *[0 for _ in range(total_seq_length-len(self.prompt))]]
+        return [
+            *range(self.past_len, self.past_len + len(self.prompt)),
+            *[0 for _ in range(total_seq_length - len(self.prompt))],
+        ]
 
 
 class CachedCausalLM:
@@ -243,10 +299,17 @@ class CachedCausalLM:
         """
         if not auth_token:
             tok = AutoTokenizer.from_pretrained(model_id)
-            mod = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", load_in_8bit=load_in_8bit)
+            mod = AutoModelForCausalLM.from_pretrained(
+                model_id, device_map="auto", load_in_8bit=load_in_8bit
+            )
         else:
             tok = AutoTokenizer.from_pretrained(model_id, use_auth_token=auth_token)
-            mod = AutoModelForCausalLM.from_pretrained(model_id, use_auth_token=auth_token, device_map="auto", load_in_8bit=load_in_8bit)
+            mod = AutoModelForCausalLM.from_pretrained(
+                model_id,
+                use_auth_token=auth_token,
+                device_map="auto",
+                load_in_8bit=load_in_8bit,
+            )
 
         return CachedCausalLM(mod, tok)
 
@@ -266,17 +329,24 @@ class CachedCausalLM:
 
         # TODO: remove required BOS token
         if self.tokenizer.bos_token_id is None:
-            raise RuntimeError("Causal LM has no BOS token, distribution of first word unclear")
+            raise RuntimeError(
+                "Causal LM has no BOS token, distribution of first word unclear"
+            )
 
         # Evaluate BOS token
-        logits   = self.model(torch.tensor([[self.tokenizer.bos_token_id]]).to(self.model.device)).logits[0][0]
+        logits = self.model(
+            torch.tensor([[self.tokenizer.bos_token_id]]).to(self.model.device)
+        ).logits[0][0]
         logprobs = torch.log_softmax(logits, 0)
 
         self.cache = TokenTrie(None, logprobs.cpu().numpy())
 
         # Cache vocabulary
-        bos_len    = len(self.tokenizer.decode([self.tokenizer.bos_token_id]))
-        self.vocab = [self.tokenizer.decode([self.tokenizer.bos_token_id,i])[bos_len:] for i in range(len(hf_tokenizer.vocab))]
+        bos_len = len(self.tokenizer.decode([self.tokenizer.bos_token_id]))
+        self.vocab = [
+            self.tokenizer.decode([self.tokenizer.bos_token_id, i])[bos_len:]
+            for i in range(len(hf_tokenizer.vocab))
+        ]
 
         # Precompute useful masks
         self.masks = Masks(self)
@@ -318,7 +388,6 @@ class CachedCausalLM:
 
     @torch.no_grad()
     def batch_evaluate_queries(self):
-
         queries, self.queries = self.queries, []
         if len(queries) == 0:
             return
@@ -327,22 +396,56 @@ class CachedCausalLM:
         max_past_length = max(q.past_len for q in queries)
         max_query_length = max(len(q.prompt) for q in queries)
 
-        padding_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else 0
+        padding_token_id = (
+            self.tokenizer.pad_token_id
+            if self.tokenizer.pad_token_id is not None
+            else 0
+        )
 
-        input_ids = torch.tensor([q.prompt_padded(padding_token_id, max_query_length) for q in queries]).to(self.device)
-        attn_masks = torch.tensor([q.attention_mask(max_past_length, max_query_length) for q in queries]).to(self.device)
-        posn_ids = torch.tensor([q.position_ids(max_past_length, max_query_length) for q in queries]).to(self.device)
+        input_ids = torch.tensor(
+            [q.prompt_padded(padding_token_id, max_query_length) for q in queries]
+        ).to(self.device)
+        attn_masks = torch.tensor(
+            [q.attention_mask(max_past_length, max_query_length) for q in queries]
+        ).to(self.device)
+        posn_ids = torch.tensor(
+            [q.position_ids(max_past_length, max_query_length) for q in queries]
+        ).to(self.device)
         if past_example:
-            pasts = [[torch.cat((*(q.past_padded(layer, j, max_past_length, past_example[0][0].dtype, self.device, past_example[0][0].shape) for q in queries),), dim=0)
-                      for j in range(2)] for layer in range(len(past_example))]
+            pasts = [
+                [
+                    torch.cat(
+                        (
+                            *(
+                                q.past_padded(
+                                    layer,
+                                    j,
+                                    max_past_length,
+                                    past_example[0][0].dtype,
+                                    self.device,
+                                    past_example[0][0].shape,
+                                )
+                                for q in queries
+                            ),
+                        ),
+                        dim=0,
+                    )
+                    for j in range(2)
+                ]
+                for layer in range(len(past_example))
+            ]
         else:
             pasts = None
 
-        results = self.model(input_ids, attention_mask=attn_masks,
-                             position_ids=posn_ids, past_key_values=pasts,
-                             use_cache=pasts is not None)
+        results = self.model(
+            input_ids,
+            attention_mask=attn_masks,
+            position_ids=posn_ids,
+            past_key_values=pasts,
+            use_cache=pasts is not None,
+        )
 
-        for (i, q) in enumerate(queries):
+        for i, q in enumerate(queries):
             q.future.set_result(results.logits[i])
 
     @torch.no_grad()
@@ -355,11 +458,13 @@ class CachedCausalLM:
         if len(self.queries) >= self.batch_size:
             self.batch_evaluate_queries()
         else:
-            self.timer = asyncio.get_running_loop().call_later(self.timeout, lambda: self.batch_evaluate_queries())
+            self.timer = asyncio.get_running_loop().call_later(
+                self.timeout, lambda: self.batch_evaluate_queries()
+            )
 
     def walk_cache(self, token_ids):
         # Walk while tokens can be found
-        node             = self.cache
+        node = self.cache
         next_token_index = 1
 
         past = None
@@ -414,7 +519,8 @@ class CachedCausalLM:
             token_ids (list[int]): a list of token ids starting with `tokenizer.bos_token_id`, representing a prompt to the language model.
 
         Returns:
-            logprobs (numpy.array): a numpy array of `len(vocab)`, with the language model's log (normalized) probabilities for the next token following the prompt."""
+            logprobs (numpy.array): a numpy array of `len(vocab)`, with the language model's log (normalized) probabilities for the next token following the prompt.
+        """
 
         # Ensure that token list begins with BOS
         assert token_ids[0] == self.tokenizer.bos_token_id
@@ -425,7 +531,11 @@ class CachedCausalLM:
         if next_token_index == len(token_ids):
             return node.logprobs
 
-        logits = self.model(torch.tensor([token_ids[base:]]).to(self.device), past_key_values=node.past_key_values, use_cache=node.past_key_values is not None).logits[0]
+        logits = self.model(
+            torch.tensor([token_ids[base:]]).to(self.device),
+            past_key_values=node.past_key_values,
+            use_cache=node.past_key_values is not None,
+        ).logits[0]
 
         node = node.extend_cache(next_token_index, token_ids, logits, base)
 

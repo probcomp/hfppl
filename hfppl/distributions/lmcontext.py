@@ -4,8 +4,8 @@ from ..llms import Token
 import numpy as np
 import copy
 
-class LMNextToken(Distribution):
 
+class LMNextToken(Distribution):
     def __init__(self, ctx):
         self.ctx = ctx
 
@@ -28,47 +28,54 @@ class LMNextToken(Distribution):
         logprob = self.ctx.next_token_logprobs[token_id]
 
         # Reset mask and update logprobs
-        self.ctx.model_mask          = self.ctx.lm.masks.ALL_TOKENS
-        updated_logprobs             = await self.ctx.lm.next_token_logprobs(self.ctx.tokens)
+        self.ctx.model_mask = self.ctx.lm.masks.ALL_TOKENS
+        updated_logprobs = await self.ctx.lm.next_token_logprobs(self.ctx.tokens)
         self.ctx.next_token_logprobs = log_softmax(updated_logprobs / self.ctx.temp)
 
-        t = Token(self.ctx.lm, token_id, self.ctx.lm.tokenizer.convert_ids_to_tokens(token_id))
+        t = Token(
+            self.ctx.lm, token_id, self.ctx.lm.tokenizer.convert_ids_to_tokens(token_id)
+        )
         return t, logprob
+
 
 class LMTokenMask(Distribution):
     def __init__(self, ctx, mask):
-        self.ctx  = ctx
+        self.ctx = ctx
         self.mask = mask
 
     async def sample(self):
-        newly_bad_tokens  = [i for i in self.ctx.model_mask if i not in self.mask]
-        good_tokens       = [i for i in self.ctx.model_mask if i in self.mask]
-        logprob_no_mask   = logsumexp(self.ctx.next_token_logprobs[newly_bad_tokens])
+        newly_bad_tokens = [i for i in self.ctx.model_mask if i not in self.mask]
+        good_tokens = [i for i in self.ctx.model_mask if i in self.mask]
+        logprob_no_mask = logsumexp(self.ctx.next_token_logprobs[newly_bad_tokens])
         if logprob_no_mask > 0:
-            logprob_yes_mask = float('-inf')
+            logprob_yes_mask = float("-inf")
         else:
             # When logprob_no_mask is very close to 0.0, np.log1p can raise a "divide by zero"
             # warning before returning -inf. We suppress this warning, because returning -inf
             # is the desired behavior (the LLM places no mass on 'yes').
-            with np.errstate(divide='ignore'):
-                logprob_yes_mask  = np.log1p(-np.exp(logprob_no_mask))
-        decide_no_mask    = np.random.rand() < np.exp(logprob_no_mask)
+            with np.errstate(divide="ignore"):
+                logprob_yes_mask = np.log1p(-np.exp(logprob_no_mask))
+        decide_no_mask = np.random.rand() < np.exp(logprob_no_mask)
         if decide_no_mask:
             self.ctx.model_mask = self.ctx.model_mask - self.mask
-            self.ctx.next_token_logprobs[good_tokens] = float('-inf')
+            self.ctx.next_token_logprobs[good_tokens] = float("-inf")
             self.ctx.next_token_logprobs -= logprob_no_mask
             return False, logprob_no_mask
         else:
             self.ctx.model_mask = self.ctx.model_mask.intersection(self.mask)
-            self.ctx.next_token_logprobs[newly_bad_tokens] = float('-inf')
+            self.ctx.next_token_logprobs[newly_bad_tokens] = float("-inf")
             self.ctx.next_token_logprobs -= logprob_yes_mask
             return True, logprob_yes_mask
 
     async def log_prob(self, v):
-        good_tokens  = self.ctx.model_mask.intersection(self.mask) if v else self.ctx.model_mask - self.mask
-        bad_tokens   = [i for i in self.ctx.model_mask if i not in good_tokens]
+        good_tokens = (
+            self.ctx.model_mask.intersection(self.mask)
+            if v
+            else self.ctx.model_mask - self.mask
+        )
+        bad_tokens = [i for i in self.ctx.model_mask if i not in good_tokens]
         logprob_good = logsumexp(self.ctx.next_token_logprobs[list(good_tokens)])
-        self.ctx.next_token_logprobs[bad_tokens] = float('-inf')
+        self.ctx.next_token_logprobs[bad_tokens] = float("-inf")
         self.ctx.next_token_logprobs -= logprob_good
         self.ctx.model_mask = good_tokens
         return logprob_good
@@ -109,21 +116,25 @@ class LMContext:
         Args:
             lm (hfppl.llms.CachedCausalLM): the language model for which this is a context.
             prompt (str): a string with which to initialize the context. Will be tokenized using `lm.tokenizer`.
-            temp (float): temeprature for next-token distribution (0 < temp < float('inf'))"""
-        self.lm                   = lm
-        self.tokens               = lm.tokenizer.encode(prompt)
-        self.next_token_logprobs  = log_softmax(lm.next_token_logprobs_unbatched(self.tokens) / temp)
-        self.temp                 = temp
-        self.model_mask           = lm.masks.ALL_TOKENS
-        self.prompt_token_count   = len(self.tokens)
+            temp (float): temeprature for next-token distribution (0 < temp < float('inf'))
+        """
+        self.lm = lm
+        self.tokens = lm.tokenizer.encode(prompt)
+        self.next_token_logprobs = log_softmax(
+            lm.next_token_logprobs_unbatched(self.tokens) / temp
+        )
+        self.temp = temp
+        self.model_mask = lm.masks.ALL_TOKENS
+        self.prompt_token_count = len(self.tokens)
         self.prompt_string_length = len(lm.tokenizer.decode(self.tokens))
-        self.show_prompt          = show_prompt
-        self.show_eos             = show_eos
+        self.show_prompt = show_prompt
+        self.show_eos = show_eos
 
     def next_token(self):
         """Distribution over the next token.
 
-        Sampling or observing from this distribution advances the state of this `LMContext` instance."""
+        Sampling or observing from this distribution advances the state of this `LMContext` instance.
+        """
         return LMNextToken(self)
 
     def mask_dist(self, mask):
@@ -135,7 +146,8 @@ class LMContext:
         the given mask.
 
         Args:
-            mask: a `set(int)` specifying which token ids are included within the mask."""
+            mask: a `set(int)` specifying which token ids are included within the mask.
+        """
         return LMTokenMask(self, mask)
 
     @property
@@ -145,16 +157,16 @@ class LMContext:
     def __str__(self):
         full_string = self.lm.tokenizer.decode(self.tokens)
         if not self.show_prompt:
-            full_string = full_string[self.prompt_string_length:]
+            full_string = full_string[self.prompt_string_length :]
         if not self.show_eos and full_string.endswith(self.lm.tokenizer.eos_token):
-            full_string = full_string[:-len(self.lm.tokenizer.eos_token)]
+            full_string = full_string[: -len(self.lm.tokenizer.eos_token)]
         return full_string
 
     def __deepcopy__(self, memo):
         cpy = type(self).__new__(type(self))
 
         for k, v in self.__dict__.items():
-            if k in set(['lm']):
+            if k in set(["lm"]):
                 setattr(cpy, k, v)
             else:
                 setattr(cpy, k, copy.deepcopy(v, memo))
