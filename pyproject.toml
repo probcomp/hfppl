@@ -28,6 +28,18 @@ black = "^23.12.1"
 pre-commit = "^3.6.0"
 jupyterlab = "^4.0.9"
 ipywidgets = "^8.1.1"
+matplotlib = "^3.9.1"
+
+
+[tool.poetry.group.yelp.dependencies]
+yake = "^0.4.8"
+datasets = "^2.20.0"
+
+
+[tool.poetry.group.collie.dependencies]
+collie-bench = "^0.1.0"
+nltk = "^3.8.1"
+dill = "^0.3.8"
 
 [tool.poetry.extras]
 examples=["nltk"]
