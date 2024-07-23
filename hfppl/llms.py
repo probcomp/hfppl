@@ -7,6 +7,7 @@ import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 from transformers import BitsAndBytesConfig
+from collections import defaultdict
 
 
 class Masks:
