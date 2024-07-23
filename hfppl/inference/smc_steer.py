@@ -1,7 +1,10 @@
-import numpy as np
-import copy
 import asyncio
-from ..util import logsumexp, softmax
+import copy
+
+import numpy as np
+
+from ..util import logsumexp
+from ..util import softmax
 
 
 def find_c(weights, N):

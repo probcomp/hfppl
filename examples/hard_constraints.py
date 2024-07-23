@@ -1,8 +1,11 @@
-import string
 import asyncio
-from hfppl import Model, CachedCausalLM, LMContext, smc_standard
-
 import os
+import string
+
+from hfppl import CachedCausalLM
+from hfppl import LMContext
+from hfppl import Model
+from hfppl import smc_standard
 
 if "HF_AUTH_TOKEN" in os.environ:
     HF_AUTH_TOKEN = os.environ["HF_AUTH_TOKEN"]

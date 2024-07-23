@@ -1,9 +1,12 @@
 """Utilities for working with HuggingFace language models, including caching and auto-batching."""
 
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import asyncio
 import string
+
+import torch
+from transformers import AutoModelForCausalLM
+from transformers import AutoTokenizer
+from transformers import BitsAndBytesConfig
 
 
 class Masks:

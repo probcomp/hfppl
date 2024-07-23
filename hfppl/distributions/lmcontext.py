@@ -1,8 +1,11 @@
-from ..util import log_softmax, logsumexp
-from .distribution import Distribution
-from ..llms import Token
-import numpy as np
 import copy
+
+import numpy as np
+
+from ..llms import Token
+from ..util import log_softmax
+from ..util import logsumexp
+from .distribution import Distribution
 
 
 class LMNextToken(Distribution):
@@ -157,9 +160,9 @@ class LMContext:
     def __str__(self):
         full_string = self.lm.tokenizer.decode(self.tokens)
         if not self.show_prompt:
-            full_string = full_string[self.prompt_string_length:]
+            full_string = full_string[self.prompt_string_length :]
         if not self.show_eos and full_string.endswith(self.lm.tokenizer.eos_token):
-            full_string = full_string[:-len(self.lm.tokenizer.eos_token)]
+            full_string = full_string[: -len(self.lm.tokenizer.eos_token)]
         return full_string
 
     def __deepcopy__(self, memo):

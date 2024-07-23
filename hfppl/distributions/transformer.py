@@ -1,6 +1,8 @@
-from .distribution import Distribution
-from ..llms import TokenSequence, Token
 import numpy as np
+
+from ..llms import Token
+from ..llms import TokenSequence
+from .distribution import Distribution
 
 
 # Transformer(lm, prompt) -- where prompt can either be a string or a list of Tokens.

@@ -1,6 +1,7 @@
-from .distribution import Distribution
-from ..util import log_softmax
 import numpy as np
+
+from ..util import log_softmax
+from .distribution import Distribution
 
 
 class LogCategorical(Distribution):
