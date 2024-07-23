@@ -1,8 +1,9 @@
-from .distribution import Distribution
-from ..util import log_softmax
-from ..llms import Token
 import numpy as np
 import torch
+
+from ..llms import Token
+from ..util import log_softmax
+from .distribution import Distribution
 
 
 class TokenCategorical(Distribution):

@@ -1,9 +1,11 @@
-import copy
-from ..util import logsumexp
-import numpy as np
 import asyncio
-from .smc_record import SMCRecord
+import copy
 from datetime import datetime
+
+import numpy as np
+
+from ..util import logsumexp
+from .smc_record import SMCRecord
 
 
 async def smc_standard(

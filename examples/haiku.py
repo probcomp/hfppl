@@ -1,7 +1,13 @@
-from hfppl import Model, CachedCausalLM, LMContext, smc_standard, sample_word
 import asyncio
-import nltk
 import os
+
+import nltk
+
+from hfppl import CachedCausalLM
+from hfppl import LMContext
+from hfppl import Model
+from hfppl import sample_word
+from hfppl import smc_standard
 
 # download the CMU pronunciation dictionary (if we haven't already)
 nltk.download("cmudict")

@@ -1,6 +1,6 @@
-from .distribution import Distribution
-
 import numpy as np
+
+from .distribution import Distribution
 
 
 class Bernoulli(Distribution):

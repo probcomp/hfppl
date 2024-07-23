@@ -14,13 +14,13 @@ import asyncio
 import os
 from typing import List
 
-from hfppl.distributions import LMContext
-from hfppl.llms import CachedCausalLM
-from hfppl.modeling import Model
-from hfppl.inference import smc_standard
-
 from synchromesh.completion_engine import LarkCompletionEngine
 from synchromesh.synchromesh import StreamingCSD
+
+from hfppl.distributions import LMContext
+from hfppl.inference import smc_standard
+from hfppl.llms import CachedCausalLM
+from hfppl.modeling import Model
 
 
 class GrammarConstrainedSMC(Model):
