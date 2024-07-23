@@ -35,4 +35,6 @@ nav:
     - batching.md
     - caching.md
     - immutability.md
+  - Visualization:
+    - visualization.md
   - Code Reference: reference/
