@@ -4,7 +4,43 @@ from .modeling import submodel
 
 
 @submodel
-async def sample_word(self, context, max_tokens=5, allow_punctuation=True):
+async def observe_word(
+    self, context, word, allow_mid_punctuation=False, allow_end_punctuation=False
+):
+    for token in context.lm.tokenizer.encode(word):
+        await self.observe(context.next_token(), token)
+    await self.observe(
+        context.mask_dist(context.lm.masks.CONTINUES_CURRENT_WORD), False
+    )
+
+    # Sample punctuation, if desired
+    mask = set()
+    if allow_mid_punctuation:
+        mask = mask | context.lm.masks.MID_PUNCTUATION
+    if allow_end_punctuation:
+        mask = mask | context.lm.masks.END_PUNCTUATION
+
+    if mask:
+        return await self.call(sample_token_constrained(context, mask, force=False))
+
+
+@submodel
+async def sample_token_constrained(self, context, mask, force=True):
+    if force:
+        await self.observe(context.mask_dist(mask), True)
+    if force or await self.sample(context.mask_dist(mask)):
+        return context.lm.vocab[(await self.sample(context.next_token())).token_id]
+    return None
+
+
+@submodel
+async def sample_word(
+    self,
+    context,
+    max_tokens=5,
+    allow_mid_punctuation: bool = False,
+    allow_end_punctuation: bool = False,
+):
     """Sample a word from the `LMContext` object `context`."""
     last_token = context.lm.vocab[context.tokens[-1]] if len(context.tokens) > 0 else ""
     last_character = last_token[-1] if len(last_token) > 0 else ""
@@ -43,11 +79,16 @@ async def sample_word(self, context, max_tokens=5, allow_punctuation=True):
 
     # Sample punctuation, if desired
     punctuation = ""
-    if allow_punctuation and await self.sample(
-        context.mask_dist(context.lm.masks.PUNCTUATION)
-    ):
-        punctuation_token = await self.sample(context.next_token())
-        punctuation = context.lm.vocab[punctuation_token.token_id]
+    mask = set()
+    if allow_mid_punctuation:
+        mask = mask | context.lm.masks.MID_PUNCTUATION
+    if allow_end_punctuation:
+        mask = mask | context.lm.masks.END_PUNCTUATION
+
+    if mask:
+        punctuation = await self.call(
+            sample_token_constrained(context, mask, force=False)
+        )
 
     return word, punctuation
 

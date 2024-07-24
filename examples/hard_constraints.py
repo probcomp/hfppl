@@ -14,7 +14,7 @@ if "HF_AUTH_TOKEN" in os.environ:
 # Mistral and Vicuna are open models; to use a model with restricted access, like LLaMA 2,
 # pass your HuggingFace API key as the optional `auth_token` argument:
 LLM = CachedCausalLM.from_pretrained(
-    "meta-llama/Meta-Llama-3-8B", auth_token=HF_AUTH_TOKEN
+    "meta-llama/Meta-Llama-3.1-8B", auth_token=HF_AUTH_TOKEN
 )
 # LLM = CachedCausalLM.from_pretrained("lmsys/vicuna-7b-v1.5")
 # LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
@@ -73,7 +73,7 @@ class ConstraintModel(Model):
 
 
 # From Politico.com
-prompt = """3 things to watch …
+prompt = """<|begin_of_text|>3 things to watch …
 
 1. The return of the House means new energy for the GOP’s Biden impeachment push, and Democrats are starting their pushback early. Rep. Jamie Raskin (D-Md.) is out this morning with a 14-page rebuttal memo that seeks to paint the GOP campaign as a “complete and total bust” and an attempt at distracting from the “overwhelming evidence of [Trump’s] criminal and corrupt conduct during his term of office.”
 

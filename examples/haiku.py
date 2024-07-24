@@ -38,14 +38,21 @@ def count_syllables(word, unknown_word_syllables=100):
 # Load the language model (llama2 if authorized, else mistral-7b).
 if "HF_AUTH_TOKEN" in os.environ:
     HF_AUTH_TOKEN = os.environ["HF_AUTH_TOKEN"]
-    LLM = CachedCausalLM.from_pretrained(
-        "meta-llama/Meta-Llama-3-8B", auth_token=HF_AUTH_TOKEN
-    )
 else:
-    LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
+    os.error(
+        "Please set the HF_AUTH_TOKEN environment variable to use a private model (LLama 3.1 8B Instruct), or choose a different model."
+    )
+
+LLM = CachedCausalLM.from_pretrained(
+    "meta-llama/Meta-Llama-3.1-8B-Instruct", auth_token=HF_AUTH_TOKEN
+)
 
 # Set batch size
 LLM.batch_size = 40
+
+# Ask user for poem title (without newline)
+poem_title = input("Enter a title for your Haiku: ")
+
 
 # Example poems for the prompt.
 # Authors:
@@ -56,7 +63,15 @@ LLM.batch_size = 40
 # Note that not all of these follow the syllabic constraints of a Haiku; the goal is
 # to encode a certain 'poetic style' but to leave the syllabic constraints to be enforced
 # by the probabilistic program (enabling generalization to other syllabic constraints).
-example_poems = """Example poems. Note how they tend to end on a somewhat surprising or otherwise satisfying note, and are not repetitive at the end.
+instruction_prompt = f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+Cutting Knowledge Date: December 2023
+Today Date: 23 Jul 2024
+
+You are a helpful assistant<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+I would like your help in writing a poem, titled "{poem_title}" -- ideally in a similar style to the example poems below. Note how they tend to end on a somewhat surprising or otherwise satisfying note, and are not repetitive at the end.
+
 
 1. "Portrait"
 Sweet smell of wet flowers
@@ -76,20 +91,18 @@ A poppy blooms.
 4. "Caterpillar"
 A caterpillar,
 this deep in fall,
-still not a butterfly."""
+still not a butterfly.
 
-# Ask user for poem title (without newline)
-poem_title = input("Enter a title for your Haiku: ")
-poem_prompt = f"""{example_poems}
-
+Now, please write your poem.
+<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 5. "{poem_title}"
 """
 
 # Cache prompt for faster generation
-LLM.cache_kv(LLM.tokenizer.encode(poem_prompt))
+LLM.cache_kv(LLM.tokenizer.encode(instruction_prompt))
 
 # Useful constants
-NEWLINE_TOKEN, EOS_TOKEN = LLM.vocab.index("\n"), LLM.tokenizer.eos_token_id
+NEWLINE_TOKEN, EOS_TOKEN = LLM.vocab.index("\n"), LLM.vocab.index("<|eot_id|>")
 
 
 # LLaMPPL model
@@ -146,7 +159,11 @@ class Haiku(Model):
 SYLLABLES_PER_LINE = [5, 7, 5]  # [5, 3, 5] for a Lune
 particles = asyncio.run(
     smc_standard(
-        Haiku(poem_prompt, SYLLABLES_PER_LINE), 20, 0.5, "html", "results/haiku.json"
+        Haiku(instruction_prompt, SYLLABLES_PER_LINE),
+        40,
+        0.5,
+        "html",
+        "results/haiku.json",
     )
 )
 
