@@ -1,4 +1,7 @@
-name: Import test
+# Builds the `hfppl` poetry environment and tests importing the library
+# Adapted from: https://github.com/marketplace/actions/install-poetry-action
+
+name: Poetry build test
 
 on:
   push:
