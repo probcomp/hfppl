@@ -70,7 +70,7 @@ class InfillingModel(Model):
         return f"{self.context}"
 
 
-prompt = """<|begin_of_text|>Consider the following five unrelated sentences.
+prompt = """Consider the following five unrelated sentences.
 1. But while the mustache looked suitably grand, it was heavy and ungainly, and presented many practical difficulties for Branagh as a performer.
 2. It was the longest seven hours of my life, I remember thinking.
 3. Tesco removed the aids, which are sleep positioners known as nests, following a warning from the US.

@@ -4,6 +4,7 @@ import asyncio
 import string
 from collections import defaultdict
 
+import numpy as np
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
@@ -205,14 +206,17 @@ class TokenTrie:
         self.children[token_id] = TokenTrie(self, logprobs)
         return self.children[token_id]
 
-    def extend_cache(self, next_token_index, token_ids, logits, base):
+    def extend_cache(
+        self, next_token_index, token_ids, logits, base, prompt_logprobs=None
+    ):
         node = self
 
         for j in range(next_token_index, len(token_ids)):
             token_id = token_ids[j]
+            if prompt_logprobs is not None:
+                prompt_logprobs[j - 1] = node.logprobs[token_id]
             token_logits = logits[j - base]
             token_logprobs = torch.log_softmax(token_logits, 0)
-
             node = node.add_token(token_id, token_logprobs.cpu().numpy())
 
         return node
@@ -469,7 +473,7 @@ class CachedCausalLM:
                 self.timeout, lambda: self.batch_evaluate_queries()
             )
 
-    def walk_cache(self, token_ids):
+    def walk_cache(self, token_ids, prompt_logprobs=None):
         # Walk while tokens can be found
         node = self.cache
         next_token_index = 1
@@ -481,6 +485,10 @@ class CachedCausalLM:
                 past = node.past_key_values
                 base = next_token_index
             if node.has_token(token_ids[next_token_index]):
+                if prompt_logprobs is not None:
+                    prompt_logprobs[next_token_index - 1] = node.logprobs[
+                        token_ids[next_token_index]
+                    ]
                 node = node.get_token(token_ids[next_token_index])
                 next_token_index += 1
             else:
@@ -489,23 +497,35 @@ class CachedCausalLM:
         return node, next_token_index, past, base
 
     @torch.no_grad()
-    async def next_token_logprobs(self, token_ids):
+    async def next_token_logprobs(self, token_ids, return_prompt_logprobs=False):
         """Request log probabilities of next token. This version is asynchronous because it automatically batches concurrent requests; use with `await`.
 
         Args:
             token_ids (list[int]): a list of token ids starting with `tokenizer.bos_token_id`, representing a prompt to the language model.
-
+            return_prompt_logprobs (bool): if True, also return a vector of length len(token_ids)-1 with the log probabilities of each non-BOS token in the prompt. Defaults to False.
         Returns:
             logprobs (numpy.array): a numpy array of `len(vocab)`, with the language model's log (normalized) probabilities for the next token following the prompt.
+            prompt_logprobs (numpy.array): a numpy array of `len(token_ids)-1`, with the language model's log (normalized) probabilities for each token in the prompt. Only returned if `report_prompt_logprobs` is True.
         """
 
         # Ensure that token list begins with BOS
-        assert token_ids[0] == self.tokenizer.bos_token_id
+        if token_ids[0] != self.tokenizer.bos_token_id:
+            token_ids = [self.tokenizer.bos_token_id] + token_ids
+            # Warn
+            print(
+                "Warning: in next_token_logprobs, token_ids did not begin with BOS token; adding it."
+            )
+        # assert token_ids[0] == self.tokenizer.bos_token_id
 
-        node, next_token_index, past, base = self.walk_cache(token_ids)
+        prompt_logprobs = (
+            None if not return_prompt_logprobs else np.zeros(len(token_ids) - 1)
+        )
+        node, next_token_index, past, base = self.walk_cache(token_ids, prompt_logprobs)
 
         # If we processed all tokens, then we're done.
         if next_token_index == len(token_ids):
+            if return_prompt_logprobs:
+                return node.logprobs, prompt_logprobs
             return node.logprobs
 
         # Create a future with the prompt
@@ -514,8 +534,12 @@ class CachedCausalLM:
         logits = await future
 
         # Create new nodes
-        node = node.extend_cache(next_token_index, token_ids, logits, base)
+        node = node.extend_cache(
+            next_token_index, token_ids, logits, base, prompt_logprobs
+        )
 
+        if return_prompt_logprobs:
+            return node.logprobs, prompt_logprobs
         return node.logprobs
 
     @torch.no_grad()

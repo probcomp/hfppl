@@ -25,7 +25,7 @@ LLM.batch_size = 40
 
 
 def instruction_prompt(prefix, suffix):
-    return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+    return f"""<|start_header_id|>system<|end_header_id|>
 
 Cutting Knowledge Date: December 2023
 Today Date: 23 Jul 2024
@@ -44,7 +44,7 @@ Sure, I can help with that. The passage might go:
 
 
 def model_prompt(prefix):
-    return f"<|begin_of_text|>{prefix}"
+    return f"{prefix}"
 
 
 class InfillingModel(Model):
@@ -52,8 +52,10 @@ class InfillingModel(Model):
     def __init__(self, prefix, suffix):
         super().__init__()
         self.context = LMContext(LLM, model_prompt(prefix))
-        self.proposal_context = LMContext(LLM, instruction_prompt(prefix, suffix))
-        self.suffix = LLM.tokenizer.encode(suffix)
+        self.proposal_context = LMContext(
+            LLM, instruction_prompt(prefix, suffix), temp=1.2
+        )
+        self.suffix = LLM.tokenizer.encode(suffix, add_special_tokens=False)
         self.tokens_left = 15
 
     async def step(self):
@@ -67,16 +69,16 @@ class InfillingModel(Model):
         if self.tokens_left > 0:
             # Twist the target distribution.
             twist_context = copy.deepcopy(self.context)
-            for token in LLM.tokenizer.encode(
-                f" ...[{self.tokens_left} words missing]..."
-            ):
-                await self.intervene(twist_context.next_token(), token)
-            for token in self.suffix:
-                lp = await twist_context.next_token().log_prob(token)
-                self.twist(lp)
+            tokens_infix = LLM.tokenizer.encode(
+                f" ...[{self.tokens_left} words missing]...", add_special_tokens=False
+            )
+            await self.intervene(
+                twist_context.next_tokens(len(tokens_infix)), tokens_infix
+            )
+            lp = await twist_context.next_tokens(len(self.suffix)).log_prob(self.suffix)
+            self.twist(lp)
         if self.tokens_left == 0:
-            for token in LLM.tokenizer.encode(suffix):
-                await self.observe(self.context.next_token(), token)
+            await self.observe(self.context.next_tokens(len(self.suffix)), self.suffix)
             self.finish()
         print(f"{self.context}")
 

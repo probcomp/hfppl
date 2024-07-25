@@ -63,7 +63,7 @@ poem_title = input("Enter a title for your Haiku: ")
 # Note that not all of these follow the syllabic constraints of a Haiku; the goal is
 # to encode a certain 'poetic style' but to leave the syllabic constraints to be enforced
 # by the probabilistic program (enabling generalization to other syllabic constraints).
-instruction_prompt = f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+instruction_prompt = f"""<|start_header_id|>system<|end_header_id|>
 
 Cutting Knowledge Date: December 2023
 Today Date: 23 Jul 2024

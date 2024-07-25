@@ -42,6 +42,51 @@ class LMNextToken(Distribution):
         return t, logprob
 
 
+class LMNextTokens(Distribution):
+    def __init__(self, ctx, num_tokens):
+        self.ctx = ctx
+        self.num_tokens = num_tokens
+
+    async def sample(self):
+        tokens = []
+        logprob = 0
+        for _ in range(self.num_tokens):
+            t, lp = await self.ctx.next_token().sample()
+            tokens.append(t)
+            logprob += lp
+        return tokens, logprob
+
+    async def log_prob(self, tokens):
+        # Do this in a single model query.
+        # if isinstance(x, Token):
+        #     x = x.token_id
+        # Check num_tokens = len(tokens)
+        if len(tokens) != self.num_tokens:
+            raise ValueError(
+                "Number of tokens in the list should be equal to num_tokens"
+            )
+
+        # Currently doesn't handle temperature not equal to 1 -- check this:
+        if self.ctx.temp != 1:
+            raise ValueError("ctx.next_tokens is currently only supported for temp=1")
+
+        current_num_tokens = len(self.ctx.tokens)
+        self.ctx.tokens.extend(tokens)
+        updated_logprobs, context_logprobs = await self.ctx.lm.next_token_logprobs(
+            self.ctx.tokens, return_prompt_logprobs=True
+        )
+        # First token may be subject to any active masks on the context object, so use
+        # the current context's next_token_logprobs. For the remaining tokens, just use the
+        # LLM lobprobs.
+        lp = self.ctx.next_token_logprobs[tokens[0]] + np.sum(
+            context_logprobs[current_num_tokens:]
+        )
+        self.ctx.next_token_logprobs = log_softmax(updated_logprobs / self.ctx.temp)
+        self.ctx.model_mask = self.ctx.lm.masks.ALL_TOKENS
+
+        return lp
+
+
 class LMTokenMask(Distribution):
     def __init__(self, ctx, mask):
         self.ctx = ctx
@@ -139,6 +184,13 @@ class LMContext:
         Sampling or observing from this distribution advances the state of this `LMContext` instance.
         """
         return LMNextToken(self)
+
+    def next_tokens(self, n):
+        """Distribution over the next n tokens.
+
+        Sampling or observing from this distribution advances the state of this `LMContext` instance.
+        """
+        return LMNextTokens(self, n)
 
     def mask_dist(self, mask):
         """Bernoulli distribution, with probability of True equal to the probability that the next token of this `LMContext` belongs

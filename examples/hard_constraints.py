@@ -73,7 +73,7 @@ class ConstraintModel(Model):
 
 
 # From Politico.com
-prompt = """<|begin_of_text|>3 things to watch …
+prompt = """3 things to watch …
 
 1. The return of the House means new energy for the GOP’s Biden impeachment push, and Democrats are starting their pushback early. Rep. Jamie Raskin (D-Md.) is out this morning with a 14-page rebuttal memo that seeks to paint the GOP campaign as a “complete and total bust” and an attempt at distracting from the “overwhelming evidence of [Trump’s] criminal and corrupt conduct during his term of office.”
 
