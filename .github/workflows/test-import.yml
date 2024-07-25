@@ -53,10 +53,9 @@ jobs:
     - name: Install project
       run: poetry install --no-interaction
     #----------------------------------------------
-    #              run test suite
+    #              test import
     #----------------------------------------------
-    - name: Run tests
+    - name: Test import
       run: |
         source .venv/bin/activate
-        pytest tests/
-        coverage report
+        python -c "import hfppl"
