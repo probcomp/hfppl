@@ -123,7 +123,7 @@ async def sample_word_2(
             break
 
     # Sample punctuation, if desired
-    punctuation = ""
+    mid_punctuation, end_punctuation = "", ""
 
     mask = set()
     if allow_mid_punctuation:
@@ -132,7 +132,10 @@ async def sample_word_2(
         mask = mask | context.lm.masks.END_PUNCTUATION
 
     if mask and await self.sample(context.mask_dist(mask)):
-        punctuation_token = await self.sample(context.next_token())
-        punctuation = context.lm.vocab[punctuation_token.token_id]
+        token = await self.sample(context.next_token())
+        if token.token_id in context.lm.masks.MID_PUNCTUATION:
+            mid_punctuation = context.lm.vocab[token.token_id]
+        if token.token_id in context.lm.masks.END_PUNCTUATION:
+            end_punctuation = context.lm.vocab[token.token_id]
 
-    return word, punctuation
+    return word, mid_punctuation, end_punctuation
