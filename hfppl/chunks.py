@@ -1,3 +1,4 @@
+import asyncio
 import string
 
 from .modeling import submodel
@@ -73,6 +74,8 @@ async def sample_word_2(
     Returns:
         Tuple[str, str]: The sampled word and punctuation
     """
+    # NOTE: Yields control back to the event loop. Necessary to allow timeouts to work correctly when this method is called in a loop.
+    await asyncio.sleep(0)
 
     # This approach sometimes breaks with max_chars = 1
     if max_chars is not None:
