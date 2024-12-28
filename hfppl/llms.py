@@ -161,6 +161,9 @@ class Token:
         else:
             return self.token_str == other
 
+    def __int__(self):
+        return self.token_id
+
     def __str__(self):
         return self.token_str
 
