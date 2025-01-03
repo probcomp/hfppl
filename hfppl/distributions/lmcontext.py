@@ -27,6 +27,7 @@ class LMNextToken(Distribution):
 
     async def sample(self):
         probs = np.exp(self.ctx.next_token_logprobs)
+        probs /= np.sum(probs)  # Renormalize to fix floating point errors
         token_id = np.random.choice(len(probs), p=(probs))
         self.ctx.tokens.append(token_id)
         logprob = self.ctx.next_token_logprobs[token_id]
