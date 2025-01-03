@@ -78,6 +78,9 @@ class LMTokenMask(Distribution):
             if v
             else self.ctx.model_mask - self.mask
         )
+        if len(good_tokens) == 0:
+            # If there are no good tokens, the log probability of v under the mask is -inf
+            return float("-inf")
         bad_tokens = [i for i in self.ctx.model_mask if i not in good_tokens]
         logprob_good = logsumexp(self.ctx.next_token_logprobs[list(good_tokens)])
         self.ctx.next_token_logprobs[bad_tokens] = float("-inf")
