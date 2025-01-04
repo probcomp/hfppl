@@ -249,7 +249,7 @@ class Query:
                         to_length - self.past_len,
                         past_shape[3],
                         dtype=dtype,
-                        device=device,
+                        device=self.past[layer][j].device
                     ),
                 ),
                 dim=2,
