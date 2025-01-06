@@ -249,7 +249,7 @@ class Query:
                         to_length - self.past_len,
                         past_shape[3],
                         dtype=dtype,
-                        device=self.past[layer][j].device
+                        device=device,
                     ),
                 ),
                 dim=2,
@@ -432,7 +432,7 @@ class CachedCausalLM:
                                     j,
                                     max_past_length,
                                     past_example[0][0].dtype,
-                                    self.device,
+                                    q.past[layer][j].device if q.past else self.device,
                                     past_example[0][0].shape,
                                 )
                                 for q in queries
