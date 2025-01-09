@@ -7,7 +7,7 @@ from .modeling import submodel
 @submodel
 async def sample_word(self, context, max_tokens=5, allow_punctuation=True):
     """Sample a word from the `LMContext` object `context`."""
-    last_token = context.lm.vocab[context.tokens[-1]] if len(context.tokens) > 0 else ""
+    last_token = context.lm.str_vocab[context.tokens[-1]] if len(context.tokens) > 0 else ""
     last_character = last_token[-1] if len(last_token) > 0 else ""
     needs_space = last_character not in string.whitespace and last_character not in [
         "-",
@@ -26,7 +26,7 @@ async def sample_word(self, context, max_tokens=5, allow_punctuation=True):
     num_tokens = 0
     while True:
         token = await self.sample(context.next_token())
-        word += context.lm.vocab[token.token_id]
+        word += context.lm.str_vocab[token.token_id]
         num_tokens += 1
 
         if num_tokens == max_tokens:
@@ -48,7 +48,7 @@ async def sample_word(self, context, max_tokens=5, allow_punctuation=True):
         context.mask_dist(context.lm.masks.PUNCTUATION)
     ):
         punctuation_token = await self.sample(context.next_token())
-        punctuation = context.lm.vocab[punctuation_token.token_id]
+        punctuation = context.lm.str_vocab[punctuation_token.token_id]
 
     return word, punctuation
 
@@ -81,7 +81,7 @@ async def sample_word_2(
     if max_chars is not None:
         assert max_chars > 1
 
-    last_token = context.lm.vocab[context.tokens[-1]] if len(context.tokens) > 0 else ""
+    last_token = context.lm.str_vocab[context.tokens[-1]] if len(context.tokens) > 0 else ""
     last_character = last_token[-1] if len(last_token) > 0 else ""
     needs_space = last_character not in string.whitespace and last_character not in [
         "-",
@@ -108,7 +108,7 @@ async def sample_word_2(
             )
 
         token = await self.sample(context.next_token())
-        word += context.lm.vocab[token.token_id]
+        word += context.lm.str_vocab[token.token_id]
 
         # If we ran out of chars, break
         if max_chars is not None and len(word.strip()) >= max_chars:
@@ -137,8 +137,8 @@ async def sample_word_2(
     if mask and await self.sample(context.mask_dist(mask)):
         token = await self.sample(context.next_token())
         if token.token_id in context.lm.masks.MID_PUNCTUATION:
-            mid_punctuation = context.lm.vocab[token.token_id]
+            mid_punctuation = context.lm.str_vocab[token.token_id]
         if token.token_id in context.lm.masks.END_PUNCTUATION:
-            end_punctuation = context.lm.vocab[token.token_id]
+            end_punctuation = context.lm.str_vocab[token.token_id]
 
     return word, mid_punctuation, end_punctuation

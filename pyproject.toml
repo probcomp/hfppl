@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hfppl"
-version = "0.1.0"
+version = "0.2.0"
 description = "Probabilistic programming with HuggingFace Transformer models."
 authors = [
     "Alex Lew <alexlew@mit.edu>",
@@ -14,14 +14,12 @@ packages = [{include = "hfppl"}]
 python = "^3.10"
 torch = "^2.1.2"
 numpy = "^1.26.2"
-transformers = "^4.36.2"
-bitsandbytes = "^0.43.3"
-accelerate = ">=0.25.0,<1.0.0"
-sentencepiece = "^0.1.99"
 scipy = "^1.11.4"
 protobuf = "^5.27.2"
 nltk = {version = "^3.8.1", optional = true}
 pre-commit = "^3.7.1"
+genlm-backend = { git = "https://github.com/probcomp/genlm-backend.git" }
+ipykernel = "^6.29.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

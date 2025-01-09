@@ -34,19 +34,6 @@ def count_syllables(word, unknown_word_syllables=100):
 
     return syllable_count
 
-
-# Load the language model (llama2 if authorized, else mistral-7b).
-if "HF_AUTH_TOKEN" in os.environ:
-    HF_AUTH_TOKEN = os.environ["HF_AUTH_TOKEN"]
-    LLM = CachedCausalLM.from_pretrained(
-        "meta-llama/Meta-Llama-3-8B", auth_token=HF_AUTH_TOKEN
-    )
-else:
-    LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
-
-# Set batch size
-LLM.batch_size = 40
-
 # Example poems for the prompt.
 # Authors:
 #   - Amy Lowell
@@ -56,7 +43,7 @@ LLM.batch_size = 40
 # Note that not all of these follow the syllabic constraints of a Haiku; the goal is
 # to encode a certain 'poetic style' but to leave the syllabic constraints to be enforced
 # by the probabilistic program (enabling generalization to other syllabic constraints).
-example_poems = """Example poems. Note how they tend to end on a somewhat surprising or otherwise satisfying note, and are not repetitive at the end.
+EXAMPLE_POEMS = """Example poems. Note how they tend to end on a somewhat surprising or otherwise satisfying note, and are not repetitive at the end.
 
 1. "Portrait"
 Sweet smell of wet flowers
@@ -78,28 +65,16 @@ A caterpillar,
 this deep in fall,
 still not a butterfly."""
 
-# Ask user for poem title (without newline)
-poem_title = input("Enter a title for your Haiku: ")
-poem_prompt = f"""{example_poems}
-
-5. "{poem_title}"
-"""
-
-# Cache prompt for faster generation
-LLM.cache_kv(LLM.tokenizer.encode(poem_prompt))
-
-# Useful constants
-NEWLINE_TOKEN, EOS_TOKEN = LLM.vocab.index("\n"), LLM.tokenizer.eos_token_id
-
-
 # LLaMPPL model
 class Haiku(Model):
 
-    def __init__(self, prompt, syllable_pattern=[5, 7, 5]):
+    def __init__(self, LLM, prompt, syllable_pattern=[5, 7, 5]):
         super().__init__()
         self.context = LMContext(LLM, prompt, 0.7)
         self.syllable_pattern = syllable_pattern
         self.previous_string = str(self.context)
+        self.newline_token = LLM.str_vocab.index("\n")
+        self.eos_token = LLM.tokenizer.eos_token_id
 
     async def step(self):
         self.previous_string = str(self.context)
@@ -121,12 +96,12 @@ class Haiku(Model):
 
         # If there are no more lines, finish
         if not self.syllable_pattern:
-            await self.observe(self.context.next_token(), EOS_TOKEN)
+            await self.observe(self.context.next_token(), self.eos_token)
             self.finish()
             return
 
         # Otherwise, observe a line break
-        await self.observe(self.context.next_token(), NEWLINE_TOKEN)
+        await self.observe(self.context.next_token(), self.newline_token)
 
         # Print current result
         print(str(self.context))
@@ -141,16 +116,50 @@ class Haiku(Model):
         )
         return s.replace("\n", "/")
 
+async def run_example(LLM, poem_title, syllable_pattern=[5, 7, 5], n_particles=20, ess_threshold=0.5):
+    # Construct prompt
+    prompt = f"""{EXAMPLE_POEMS}
 
-# Run inference
-SYLLABLES_PER_LINE = [5, 7, 5]  # [5, 3, 5] for a Lune
-particles = asyncio.run(
-    smc_standard(
-        Haiku(poem_prompt, SYLLABLES_PER_LINE), 20, 0.5, "html", "results/haiku.json"
+5. "{poem_title}"
+"""
+    
+    # Cache the key value vectors for the prompt
+    LLM.cache_kv(LLM.tokenizer.encode(prompt))
+
+    # Initialize the Model
+    haiku_model = Haiku(LLM, prompt, syllable_pattern)
+
+    # Run inference
+    particles = await smc_standard(
+        haiku_model, n_particles, ess_threshold, "html", "results/haiku.json"
     )
-)
 
-# print("--------")
-# for i, particle in enumerate(particles):
-#     print(f"Poem {i} (weight {particle.weight}):")
-#     print(f"{particle.context}")
+    return particles
+
+def main():
+    # Load the language model.
+    # Mistral is an open model; to use a model with restricted access, like LLaMA 3,
+    # authenticate using the Huggingface CLI.
+    LLM = CachedCausalLM.from_pretrained("meta-llama/Meta-Llama-3-8B")
+    # LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
+
+    # Set batch size if using HuggingFace backend
+    if LLM.backend == 'hf':
+        LLM.batch_size = 40
+
+    # Get poem title from user
+    poem_title = input("Enter a title for your Haiku: ")
+
+    syllables_per_line = [5, 7, 5] # [5, 3, 5] for a Lune
+    
+    # Run the example
+    particles = asyncio.run(run_example(LLM, poem_title, syllable_pattern=syllables_per_line))
+
+    print("--------")
+    for i, particle in enumerate(particles):
+        print(f"\nPoem {i} (weight {particle.weight}):")
+        print(f"{particle.context}")
+
+if __name__ == "__main__":
+    main()
+

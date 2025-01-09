@@ -7,38 +7,28 @@ from hfppl import LMContext
 from hfppl import Model
 from hfppl import smc_standard
 
-if "HF_AUTH_TOKEN" in os.environ:
-    HF_AUTH_TOKEN = os.environ["HF_AUTH_TOKEN"]
-
-# Load the language model.
-# Mistral and Vicuna are open models; to use a model with restricted access, like LLaMA 2,
-# pass your HuggingFace API key as the optional `auth_token` argument:
-LLM = CachedCausalLM.from_pretrained(
-    "meta-llama/Meta-Llama-3-8B", auth_token=HF_AUTH_TOKEN
-)
-# LLM = CachedCausalLM.from_pretrained("lmsys/vicuna-7b-v1.5")
-# LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
-LLM.batch_size = 40
-
-MASKS = {
-    i: set(
-        j
-        for (j, v) in enumerate(LLM.vocab)
-        if j != LLM.tokenizer.eos_token_id
-        and "\n" not in v
-        and any(c.isalpha() or c in string.punctuation for c in v)
-        and len(v.strip()) <= 5
-        and (not v[0].isalpha() or i + len(v) <= 5)
-    )
-    for i in range(6)
-}
+def make_masks(LLM):
+    return {
+        i: set(
+            j
+            for (j, v) in enumerate(LLM.str_vocab)
+            if j != LLM.tokenizer.eos_token_id
+            and "\n" not in v
+            and any(c.isalpha() or c in string.punctuation for c in v)
+            and len(v.strip()) <= 5
+            and (not v[0].isalpha() or i + len(v) <= 5)
+        )
+        for i in range(6)
+    }
 
 
 class ConstraintModel(Model):
-    def __init__(self, prompt, max_tokens):
+    def __init__(self, LLM, prompt, max_tokens):
         super().__init__()
         self.context = LMContext(LLM, prompt)
         self.max_tokens = max_tokens
+        self.masks = make_masks(LLM)
+        self.eos_token_id = LLM.tokenizer.eos_token_id
 
     async def start(self):
         mask = self.active_constraint_mask()
@@ -54,7 +44,7 @@ class ConstraintModel(Model):
         print(f"{self.context}")
 
         # Check if done
-        if token == LLM.tokenizer.eos_token_id or self.max_tokens == 0:
+        if token == self.eos_token_id or self.max_tokens == 0:
             self.finish()
             return
 
@@ -66,10 +56,13 @@ class ConstraintModel(Model):
         string_so_far = str(self.context)
         words = string_so_far.split()
         last_word = words[-1] if len(words) > 0 else ""
-        return MASKS[min(5, len(last_word))]
+        return self.masks[min(5, len(last_word))]
 
     def string_for_serialization(self):
         return f"{self.context}"
+
+    def immutable_properties(self):
+        return ['masks']
 
 
 # From Politico.com
@@ -81,16 +74,36 @@ prompt = """3 things to watch …
 
 3."""
 
-LLM.cache_kv(LLM.tokenizer.encode(prompt))
+async def run_example(LLM, max_tokens=50, n_particles=20, ess_threshold=0.5):
+    # Cache the key value vectors for the prompt.
+    LLM.cache_kv(LLM.tokenizer.encode(prompt))
 
+    # Initialize the Model.
+    constraint_model = ConstraintModel(LLM, prompt, max_tokens)
 
-async def main():
-    constraint_model = ConstraintModel(prompt, 50)
+    # Run inference.
     particles = await smc_standard(
-        constraint_model, 20, 0.5, "html", "results/output.json"
+        constraint_model, n_particles, ess_threshold, "html", "results/output.json"
     )
     for p in particles:
         print(f"{p.context}")
 
+    return particles
 
-asyncio.run(main())
+def main():
+    # Load the language model.
+    # Mistral and Vicuna are open models; to use a model with restricted access, like LLaMA 3,
+    # authenticate using the Huggingface CLI.
+    LLM = CachedCausalLM.from_pretrained("meta-llama/Meta-Llama-3-8B")
+    # LLM = CachedCausalLM.from_pretrained("lmsys/vicuna-7b-v1.5")
+    # LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
+
+    # Set batch size if provided. This operation is only valid for the HuggingFace backend.
+    if LLM.backend == 'hf':
+        LLM.batch_size = 40
+        
+    # Run the example.
+    asyncio.run(run_example(LLM))
+
+if __name__ == "__main__":
+    main()
