@@ -432,7 +432,7 @@ class CachedCausalLM:
                                     j,
                                     max_past_length,
                                     past_example[0][0].dtype,
-                                    self.device,
+                                    q.past[layer][j].device if q.past else self.device,
                                     past_example[0][0].shape,
                                 )
                                 for q in queries
