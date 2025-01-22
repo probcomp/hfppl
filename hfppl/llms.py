@@ -1,4 +1,4 @@
-"""Utilities for working with HuggingFace language models, including caching and auto-batching."""
+"""Utilities for working with language models."""
 
 import torch
 import string
@@ -169,10 +169,10 @@ class Token:
 
 
 class CachedCausalLM:
-    """Wrapper around a [`genlm_backend.AsyncLM`](https://probcomp.github.io/genlm-backend/reference/genlm_backend/llm/__init__/).
+    """Wrapper around a [`genlm_backend.llm.AsyncLM`](https://probcomp.github.io/genlm-backend/reference/genlm_backend/llm/__init__/).
 
     Attributes:
-        model (genlm_backend.AsyncLM): The underlying language model (either `AsyncVirtualLM` or `AsyncTransformer`).
+        model (genlm_backend.llm.AsyncLM): The underlying language model (either `AsyncVirtualLM` or `AsyncTransformer`).
         str_vocab (list[str]): List mapping token IDs to their string representations.
         byte_vocab (list[bytes]): List mapping token IDs to their byte representations.
         masks (Masks): Token masks for filtering logits during generation.
@@ -206,7 +206,7 @@ class CachedCausalLM:
         elif backend == 'mock':
             model_cls = MockAsyncLM
         else:
-            raise ValueError(f"Unknown backend: {backend}. Must be one of ['vllm', 'hf']")
+            raise ValueError(f"Unknown backend: {backend}. Must be one of ['vllm', 'hf', 'mock']")
 
         # Handle legacy auth_token parameter. The ability to pass in the auth_token should 
         # be removed in a future version since it is not supported by the vllm backend.
@@ -234,13 +234,12 @@ class CachedCausalLM:
 
         return cls(model)
 
-    @torch.no_grad()
     def __init__(self, model):
         """
         Create a `CachedCausalLM` from an `AsyncLM`.
 
         Args:
-            model (genlm_backend.AsyncLM): an `AsyncLM` instance.
+            model (genlm_backend.llm.AsyncLM): an `AsyncLM` instance.
         """
         if isinstance(model, AsyncVirtualLM):
             self.backend = 'vllm'
@@ -280,7 +279,7 @@ class CachedCausalLM:
             logprobs (numpy.array): a numpy array of length `len(str_vocab)` (equivalently `len(byte_vocab)`) with the language model's log (normalized) probabilities for the next token following the prompt.
         """
         logprobs = await self.model.next_token_logprobs(token_ids)
-        return logprobs.cpu().numpy()
+        return logprobs.float().cpu().numpy()
 
     def next_token_logprobs_unbatched(self, token_ids):
         """Request log probabilities of next token. Not asynchronous, and does not support auto-batching.
@@ -291,7 +290,7 @@ class CachedCausalLM:
         Returns:
             logprobs (numpy.array): a numpy array of length `len(str_vocab)` (equivalently `len(byte_vocab)`) with the language model's log (normalized) probabilities for the next token following the prompt.
         """
-        return self.model.next_token_logprobs_sync(token_ids).cpu().numpy()
+        return self.model.next_token_logprobs_sync(token_ids).float().cpu().numpy()
 
     def clear_cache(self):
         """Clear the cache of log probabilities and key/value pairs.
