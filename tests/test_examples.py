@@ -6,8 +6,8 @@ from examples.haiku import run_example as run_haiku
 from examples.hard_constraints import run_example as run_hard_constraints
 
 backends = [
-    pytest.param('mock'),
-    pytest.param('hf'),
+    'mock',
+    'hf',
     pytest.param(
         'vllm',
         marks=pytest.mark.skipif(
