@@ -291,34 +291,43 @@ class CachedCausalLM:
     """
 
     @classmethod
-    def from_pretrained(cls, model_id, auth_token=False, load_in_8bit=True):
+    def from_pretrained(
+        cls,
+        model_id: str,
+        auth_token: str = None,
+        load_in_4bit: bool = False,
+        load_in_8bit: bool = True,
+        torch_dtype: str = "auto",
+        bnb_config: BitsAndBytesConfig = None,
+    ):
         """Create a [`CachedCausalLM`][hfppl.llms.CachedCausalLM] from a pretrained HuggingFace model.
 
         Args:
             model_id (str): the string identifier of the model in HuggingFace's model library.
             auth_token (str): a HuggingFace API key. Only necessary if using private models, e.g. Meta's Llama models, which require authorization.
+            load_in_4bit (bool): whether to use the `bitsandbytes` library to load the model in 4-bit quantized form.
             load_in_8bit (bool): whether to use the `bitsandbytes` library to load the model in 8-bit quantized form.
+            torch_dtype (str): the PyTorch dtype to use for the model. Defaults to `torch.float32`.
+            bnb_config (BitsAndBytesConfig): a custom configuration for quantization. If specified, `load_in_4bit` and `load_in_8bit` are ignored.
 
         Returns:
             model (hfppl.llms.CachedCausalLM): the LLaMPPL-compatible interface to the HuggingFace model.
         """
-        bnb_config = BitsAndBytesConfig(load_in_8bit=load_in_8bit)
+        if load_in_4bit or load_in_8bit:
+            if bnb_config is not None:
+                raise ValueError(
+                    "Cannot specify `load_in_4bit` or `load_in_8bit` with custom `bnb_config`."
+                )
+            bnb_config = BitsAndBytesConfig(load_in_4bit=load_in_4bit, load_in_8bit=load_in_8bit)
 
-        if not auth_token:
-            tok = AutoTokenizer.from_pretrained(model_id)
-            mod = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                device_map="auto",
-                quantization_config=bnb_config,
-            )
-        else:
-            tok = AutoTokenizer.from_pretrained(model_id, token=auth_token)
-            mod = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                token=auth_token,
-                device_map="auto",
-                quantization_config=bnb_config,
-            )
+        tok = AutoTokenizer.from_pretrained(model_id, token=auth_token)
+        mod = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            token=auth_token,
+            device_map="auto",
+            torch_dtype=torch_dtype,
+            quantization_config=bnb_config,
+        )
 
         return CachedCausalLM(mod, tok)
 
