@@ -307,7 +307,7 @@ class CachedCausalLM:
             auth_token (str): a HuggingFace API key. Only necessary if using private models, e.g. Meta's Llama models, which require authorization.
             load_in_4bit (bool): whether to use the `bitsandbytes` library to load the model in 4-bit quantized form.
             load_in_8bit (bool): whether to use the `bitsandbytes` library to load the model in 8-bit quantized form.
-            torch_dtype (str): the PyTorch dtype to use for the model. Defaults to `torch.float32`.
+            torch_dtype (str): the PyTorch dtype to use for the model. Defaults to `auto`, which uses the default dtype for the model.
             bnb_config (BitsAndBytesConfig): a custom configuration for quantization. If specified, `load_in_4bit` and `load_in_8bit` are ignored.
 
         Returns:
