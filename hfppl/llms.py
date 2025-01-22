@@ -216,7 +216,7 @@ class TokenTrie:
             token_logits = logits[j - base]
             token_logprobs = torch.log_softmax(token_logits, 0)
 
-            node = node.add_token(token_id, token_logprobs.cpu().numpy())
+            node = node.add_token(token_id, token_logprobs.float().cpu().numpy())
 
         return node
 
@@ -357,7 +357,7 @@ class CachedCausalLM:
         ).logits[0][0]
         logprobs = torch.log_softmax(logits, 0)
 
-        self.cache = TokenTrie(None, logprobs.cpu().numpy())
+        self.cache = TokenTrie(None, logprobs.float().cpu().numpy())
 
         # Cache vocabulary
         bos_len = len(self.tokenizer.decode([self.tokenizer.bos_token_id]))
