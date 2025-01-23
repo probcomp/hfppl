@@ -20,7 +20,6 @@ nltk = {version = "^3.8.1", optional = true}
 pre-commit = "^3.7.1"
 genlm-backend = { git = "git+ssh://git@github.com:probcomp/genlm-backend.git" }
 vllm = "^0.6.6"
-# genlm-backend = { git = "https://github.com/probcomp/genlm-backend.git" }
 ipykernel = "^6.29.5"
 
 [tool.poetry.group.dev.dependencies]
