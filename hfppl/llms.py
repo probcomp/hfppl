@@ -194,34 +194,34 @@ class CachedCausalLM:
                 - 'hf' for an `AsyncTransformer`; ideal for CPU usage
                 - 'mock' for a `MockAsyncLM`; ideal for testing.
                 Defaults to 'vllm' if CUDA is available, otherwise 'hf'.
-            **kwargs: Additional keyword arguments passed to the `AsyncLM` constructor. 
+            **kwargs: Additional keyword arguments passed to the `AsyncLM` constructor.
                 See [`AsyncLM` documentation](https://probcomp.github.io/genlm-backend/reference/genlm_backend/llm/__init__/).
 
         Returns:
             CachedCausalLM: The LLaMPPL-compatible interface to the `AsyncLM` model.
         """
         backend = backend or ('vllm' if torch.cuda.is_available() else 'hf')
-         
+
         if backend == 'vllm':
             model_cls = AsyncVirtualLM
         elif backend == 'hf':
-            model_cls = AsyncTransformer 
+            model_cls = AsyncTransformer
         elif backend == 'mock':
             model_cls = MockAsyncLM
         else:
             raise ValueError(f"Unknown backend: {backend}. Must be one of ['vllm', 'hf', 'mock']")
 
-        # Handle legacy auth_token parameter. The ability to pass in the auth_token should 
+        # Handle legacy auth_token parameter. The ability to pass in the auth_token should
         # be removed in a future version since it is not supported by the vllm backend.
         # Users should authenticate with the HuggingFace CLI.
         auth_token = kwargs.pop('auth_token', None)
         if auth_token:
             if backend == 'vllm':
                 raise ValueError(
-                    "Explicitly passing auth_token is not compatible with the vLLM AsyncLM backend. " 
+                    "Explicitly passing auth_token is not compatible with the vLLM AsyncLM backend. "
                     "Authenticate using `huggingface-cli login` instead."
                 )
-            
+
             if 'hf_opts' not in kwargs:
                 kwargs['hf_opts'] = {}
             kwargs['hf_opts']['token'] = auth_token
@@ -229,6 +229,19 @@ class CachedCausalLM:
             warnings.warn(
                 "Passing auth_token directly is deprecated and will be removed in a future version. "
                 "Please authenticate using `huggingface-cli login` instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        load_in_8bit = kwargs.pop('load_in_8bit', False)
+        if load_in_8bit:
+            if 'bitsandbytes_opts' not in kwargs:
+                kwargs['bitsandbytes_opts'] = {}
+            kwargs['bitsandbytes_opts']['load_in_8bit'] = True
+
+            warnings.warn(
+                "load_in_8bit is deprecated and will be removed in a future version. "
+                "Please pass `bitsandbytes_opts` instead.",
                 DeprecationWarning,
                 stacklevel=2
             )
@@ -297,9 +310,9 @@ class CachedCausalLM:
 
     def clear_cache(self):
         """Clear the cache of log probabilities and key/value pairs.
-    
+
         For HuggingFace backend: Clears both logprob cache and KV cache.
-        
+
         For vLLM backend: Only clears logprob cache (KV cache is managed internally by vLLM).
         """
         self.model.clear_cache()
@@ -336,7 +349,7 @@ class CachedCausalLM:
 
     def cache_kv(self, prompt_tokens):
         """Cache the key and value vectors for a prompt.
-        
+
         Args:
             prompt_tokens (list[int]): token ids for the prompt to cache.
         """
