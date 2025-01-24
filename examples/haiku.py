@@ -68,13 +68,19 @@ still not a butterfly."""
 # LLaMPPL model
 class Haiku(Model):
 
-    def __init__(self, LLM, prompt, syllable_pattern=[5, 7, 5]):
+    @classmethod
+    async def create(cls, LLM, prompt, syllable_pattern=[5, 7, 5]):
+        """Async factory method to create the model"""
+        context = await LMContext.create(LLM, prompt)
+        return cls(context, syllable_pattern)
+
+    def __init__(self, context, syllable_pattern=[5, 7, 5]):
         super().__init__()
-        self.context = LMContext(LLM, prompt, 0.7)
+        self.context = context
         self.syllable_pattern = syllable_pattern
         self.previous_string = str(self.context)
-        self.newline_token = LLM.str_vocab.index("\n")
-        self.eos_token = LLM.tokenizer.eos_token_id
+        self.newline_token = context.lm.str_vocab.index("\n")
+        self.eos_token = context.lm.tokenizer.eos_token_id
 
     async def step(self):
         self.previous_string = str(self.context)
@@ -127,7 +133,7 @@ async def run_example(LLM, poem_title, syllable_pattern=[5, 7, 5], n_particles=2
     LLM.cache_kv(LLM.tokenizer.encode(prompt))
 
     # Initialize the Model
-    haiku_model = Haiku(LLM, prompt, syllable_pattern)
+    haiku_model = await Haiku.create(LLM, prompt, syllable_pattern)
 
     # Run inference
     particles = await smc_standard(

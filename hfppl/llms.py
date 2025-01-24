@@ -356,8 +356,11 @@ class CachedCausalLM:
         if self.backend == 'hf':
             self.model.cache_kv(prompt_tokens)
         elif self.backend == 'vllm':
-            # vLLM's prefix caching feature will cache the KV vectors for this request
-            self.model.next_token_logprobs_sync(prompt_tokens)
+            warnings.warn(
+                "cache_kv() is only supported for the HuggingFace backend. The KV cache for the vLLM backend is handled internally by vLLM. No operation performed.",
+                RuntimeWarning,
+                stacklevel=2
+            )
         elif self.backend == 'mock':
             pass
         else:
