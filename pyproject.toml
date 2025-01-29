@@ -20,7 +20,7 @@ protobuf = "^5.27.2"
 nltk = {version = "^3.8.1", optional = true}
 pre-commit = "^3.7.1"
 ipykernel = "^6.29.5"
-genlm-backend = { git = "git@github.com:probcomp/genlm-backend.git" }
+genlm-backend = { git = "git@github.com:chi-collective/genlm-backend.git" }
 
 [tool.poetry.group.vllm]
 optional = true
