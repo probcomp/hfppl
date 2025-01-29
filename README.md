@@ -94,7 +94,7 @@ import asyncio
 from hfppl import smc_steer
 
 # Initialize the HuggingFace model
-lm = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", auth_token=<YOUR_HUGGINGFACE_API_TOKEN_HERE>)
+lm = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", backend='hf', auth_token=<YOUR_HUGGINGFACE_API_TOKEN_HERE>)
 
 # Create a model instance
 model = MyModel(lm, "The weather today is expected to be", "e")
