@@ -24,18 +24,12 @@ def make_masks(LLM):
 
 class ConstraintModel(Model):
 
-    @classmethod
-    async def create(cls, LLM, prompt, max_tokens):
-        """Async factory method to create the model"""
-        context = await LMContext.create(LLM, prompt)
-        return cls(context, max_tokens)
-
-    def __init__(self, context, max_tokens):
+    def __init__(self, LLM, prompt, max_tokens):
         super().__init__()
-        self.context = context
+        self.context = LMContext(LLM, prompt)
         self.max_tokens = max_tokens
-        self.masks = make_masks(context.lm)
-        self.eos_token_id = context.lm.tokenizer.eos_token_id
+        self.masks = make_masks(LLM)
+        self.eos_token_id = LLM.tokenizer.eos_token_id
 
     async def start(self):
         mask = self.active_constraint_mask()
@@ -86,7 +80,7 @@ async def run_example(LLM, max_tokens=50, n_particles=20, ess_threshold=0.5):
     LLM.cache_kv(LLM.tokenizer.encode(prompt))
 
     # Initialize the Model.
-    constraint_model = await ConstraintModel.create(LLM, prompt, max_tokens)
+    constraint_model = ConstraintModel(LLM, prompt, max_tokens)
 
     # Run inference.
     particles = await smc_standard(
