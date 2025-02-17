@@ -126,15 +126,10 @@ class LMContext:
             lm (hfppl.llms.CachedCausalLM): the language model for which this is a context.
             prompt (str): a string with which to initialize the context. Will be tokenized using `lm.tokenizer`.
             temp (float): temeprature for next-token distribution (0 < temp < float('inf'))
-        
-        Note: 
-            For LMContext creation in async contexts, use LMContext.create() instead.
+
+        Note:
+            For async initialization of LMContext, use LMContext.create().
         """
-        if lm.backend == 'vllm':
-            warnings.warn(
-                'Using LMContext.__init__() for VLLM backend is not recommended. '
-                'Use LMContext.create() instead.'
-            )
         self._init_common(lm, prompt, temp, show_prompt, show_eos)
         self.next_token_logprobs = log_softmax(
             lm.next_token_logprobs_unbatched(self.tokens) / temp
