@@ -7,6 +7,12 @@ import warnings
 from collections import defaultdict
 from genlm_backend.llm import AsyncVirtualLM, AsyncTransformer, MockAsyncLM
 
+VLLM_AVAILABLE = True
+try:
+    import vllm
+except ImportError:
+    VLLM_AVAILABLE = False
+
 warnings.filterwarnings('once', category=DeprecationWarning)
 warnings.filterwarnings('once', category=RuntimeWarning)
 
@@ -198,11 +204,16 @@ class CachedCausalLM:
                 See [`AsyncLM` documentation](https://probcomp.github.io/genlm-backend/reference/genlm_backend/llm/__init__/).
 
         Returns:
-            CachedCausalLM: The LLaMPPL-compatible interface to the `AsyncLM` model.
+            CachedCausalLM: The hfppl-compatible interface to the `AsyncLM` model.
         """
-        backend = backend or ('vllm' if torch.cuda.is_available() else 'hf')
+        backend = backend or ('vllm' if (torch.cuda.is_available() and VLLM_AVAILABLE) else 'hf')
 
         if backend == 'vllm':
+            if not VLLM_AVAILABLE:
+                raise ValueError(
+                    "vLLM backend requested but vLLM is not installed. "
+                    "Please install vLLM with `pip install vllm`."
+                )
             model_cls = AsyncVirtualLM
         elif backend == 'hf':
             model_cls = AsyncTransformer
