@@ -29,6 +29,14 @@ poetry run python examples/hard_constraints.py
 
 If everything is working, you should see the model generate political news using words that are at most five letters long (e.g., "Dr. Jill Biden may still be a year away from the White House but she is set to make her first trip to the U.N. today.").
 
+### vLLM backend
+
+As of version 0.2.0, hfppl now supports vllm backend, which provides significant speedups over the HuggingFace backend. To install this backend, simply add the following:
+
+```
+poetry install --with vllm
+```
+
 ## Modeling with LLaMPPL
 
 A LLaMPPL program is a subclass of the `hfppl.Model` class.
@@ -47,18 +55,18 @@ class MyModel(Model):
         # A stateful context object for the LLM, initialized with the prompt
         self.context = LMContext(lm, prompt)
         self.eos_token = lm.tokenizer.eos_token_id
-        
+
         # The forbidden letter
         self.forbidden_tokens = set(i for (i, v) in enumerate(lm.vocab)
                                       if forbidden_letter in v)
-    
+
     # The step method is used to perform a single 'step' of generation.
     # This might be a single token, a single phrase, or any other division.
     # Here, we generate one token at a time.
     async def step(self):
         # Condition on the next token *not* being a forbidden token.
         await self.observe(self.context.mask_dist(self.forbidden_tokens), False)
-        
+
         # Sample the next token from the LLM -- automatically extends `self.context`.
         token = await self.sample(self.context.next_token())
 
@@ -86,7 +94,7 @@ import asyncio
 from hfppl import smc_steer
 
 # Initialize the HuggingFace model
-lm = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", auth_token=<YOUR_HUGGINGFACE_API_TOKEN_HERE>)
+lm = CachedCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", backend='hf', auth_token=<YOUR_HUGGINGFACE_API_TOKEN_HERE>)
 
 # Create a model instance
 model = MyModel(lm, "The weather today is expected to be", "e")

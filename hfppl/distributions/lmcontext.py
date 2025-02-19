@@ -1,5 +1,5 @@
 import copy
-
+import warnings
 import numpy as np
 
 from ..llms import Token
@@ -126,12 +126,28 @@ class LMContext:
             lm (hfppl.llms.CachedCausalLM): the language model for which this is a context.
             prompt (str): a string with which to initialize the context. Will be tokenized using `lm.tokenizer`.
             temp (float): temeprature for next-token distribution (0 < temp < float('inf'))
+
+        Note:
+            For async initialization of LMContext, use LMContext.create().
         """
-        self.lm = lm
-        self.tokens = lm.tokenizer.encode(prompt)
+        self._init_common(lm, prompt, temp, show_prompt, show_eos)
         self.next_token_logprobs = log_softmax(
             lm.next_token_logprobs_unbatched(self.tokens) / temp
         )
+
+    @classmethod
+    async def create(cls, lm, prompt, temp=1.0, show_prompt=False, show_eos=True):
+        """Asynchronously create a new `LMContext` with a given prompt and temperature."""
+        self = cls.__new__(cls)
+        self._init_common(lm, prompt, temp, show_prompt, show_eos)
+        logprobs = await lm.next_token_logprobs(self.tokens)
+        self.next_token_logprobs = log_softmax(logprobs / temp)
+        return self
+
+    def _init_common(self, lm, prompt, temp, show_prompt, show_eos):
+        """Initialize common attributes shared between __init__ and create."""
+        self.lm = lm
+        self.tokens = lm.tokenizer.encode(prompt)
         self.temp = temp
         self.model_mask = lm.masks.ALL_TOKENS
         self.prompt_string_length = len(lm.tokenizer.decode(self.tokens))

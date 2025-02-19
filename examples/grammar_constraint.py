@@ -38,7 +38,7 @@ class GrammarConstrainedSMC(Model):
         self.lm = lm
         self.grammar = grammar
         self.context = LMContext(lm, prompt)
-        self.vocab = self.lm.vocab
+        self.vocab = self.lm.str_vocab
         self.eos_token_id = self.lm.tokenizer.eos_token_id
 
         self.comp_engine = LarkCompletionEngine(
@@ -125,10 +125,9 @@ async def run_generation(
     max_tokens: int = 32,
     verbose: bool = False,
 ):
-    LLM = CachedCausalLM.from_pretrained(
-        args.model, auth_token=os.getenv("HF_AUTH_TOKEN")
-    )
-    LLM.batch_size = args.batch_size
+    LLM = CachedCausalLM.from_pretrained(args.model)
+    if LLM.backend == 'hf':
+        LLM.batch_size = args.batch_size
     model = GrammarConstrainedSMC(
         lm=LLM,
         grammar=grammar,
@@ -176,12 +175,6 @@ if __name__ == "__main__":
         type=int,
         default=5,
         help="Number of particles to use in SMC",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=16,
-        help="LLM batch size",
     )
     parser.add_argument(
         "--max-tokens",

@@ -1,21 +1,27 @@
-"""Utilities for working with HuggingFace language models, including caching and auto-batching."""
-
-import asyncio
-import string
-from collections import defaultdict
+"""Utilities for working with language models."""
 
 import torch
-from transformers import AutoModelForCausalLM
-from transformers import AutoTokenizer
-from transformers import BitsAndBytesConfig
+import string
+import asyncio
+import warnings
+from collections import defaultdict
+from genlm_backend.llm import AsyncVirtualLM, AsyncTransformer, MockAsyncLM
 
+VLLM_AVAILABLE = True
+try:
+    import vllm
+except ImportError:
+    VLLM_AVAILABLE = False
+
+warnings.filterwarnings('once', category=DeprecationWarning)
+warnings.filterwarnings('once', category=RuntimeWarning)
 
 class Masks:
     def __init__(self, lm):
-        self.ALL_TOKENS = set(range(len(lm.vocab)))
+        self.ALL_TOKENS = set(range(len(lm.str_vocab)))
         self.STARTS_NEW_WORD = set(
             i
-            for (i, v) in enumerate(lm.vocab)
+            for (i, v) in enumerate(lm.str_vocab)
             if v[0] == " "
             and len(v) > 1
             and v[1] not in string.whitespace
@@ -23,19 +29,19 @@ class Masks:
         )
         self.CONTINUES_CURRENT_WORD = set(
             i
-            for (i, v) in enumerate(lm.vocab)
+            for (i, v) in enumerate(lm.str_vocab)
             if all(c in "'" or c.isalpha() for c in v)
         )
         self.MID_PUNCTUATION = set(
-            i for (i, v) in enumerate(lm.vocab) if v in (",", ":", ";", "-", '"')
+            i for (i, v) in enumerate(lm.str_vocab) if v in (",", ":", ";", "-", '"')
         )
         self.END_PUNCTUATION = set(
-            i for (i, v) in enumerate(lm.vocab) if v in (".", "!", "?")
+            i for (i, v) in enumerate(lm.str_vocab) if v in (".", "!", "?")
         )
         self.PUNCTUATION = self.MID_PUNCTUATION | self.END_PUNCTUATION
         self.CONTAINS_WHITESPACE = set(
             i
-            for (i, v) in enumerate(lm.vocab)
+            for (i, v) in enumerate(lm.str_vocab)
             if any(c in string.whitespace for c in v)
         )
 
@@ -45,14 +51,14 @@ class Masks:
         """Precompute masks for tokens of different lengths.
 
         Each mask is a set of token ids that are of the given length or shorter."""
-        max_token_length = max([len(t) for t in lm.vocab])
+        max_token_length = max([len(t) for t in lm.str_vocab])
 
         masks = defaultdict(lambda: self.ALL_TOKENS)
         masks[0] = set([lm.tokenizer.eos_token_id])
         for token_length in range(1, max_token_length + 1):
             masks[token_length] = set(
                 i
-                for (i, v) in enumerate(lm.vocab)
+                for (i, v) in enumerate(lm.str_vocab)
                 if len(v) <= token_length and i != lm.tokenizer.eos_token_id
             )
 
@@ -134,7 +140,7 @@ class Token:
     Attributes:
         lm (hfppl.llms.CachedCausalLM): the language model for which this is a Token.
         token_id (int): the integer token id (an index into the vocabulary).
-        token_str (str): a string, which the token represents—equal to `lm.vocab[token_id]`.
+        token_str (str): a string, which the token represents—equal to `lm.str_vocab[token_id]`.
     """
 
     def __init__(self, lm, token_id, token_str):
@@ -171,382 +177,202 @@ class Token:
         return f"<{self.token_str}|{self.token_id}>"
 
 
-class TokenTrie:
-    """Class used internally to cache language model results."""
-
-    # Trie of tokens.
-
-    def __init__(self, parent=None, logprobs=None):
-        self.children = {}  # maps token ID to child
-        self.logprobs = logprobs  # for next token
-        self.past_key_values = None
-
-    def __repr__(self):
-        return (
-            f"{'*' if self.past_key_values is not None else ''}["
-            + ", ".join(
-                [
-                    f"{node_id}: {node.__repr__()}"
-                    for (node_id, node) in self.children.items()
-                ]
-            )
-            + "]"
-        )
-
-    def clear_kv_cache(self):
-        self.past_key_values = None
-        for child, node in self.children.items():
-            node.clear_kv_cache()
-
-    def has_token(self, token_id):
-        return token_id in self.children
-
-    def get_token(self, token_id):
-        return self.children[token_id]
-
-    def add_token(self, token_id, logprobs=None):
-        self.children[token_id] = TokenTrie(self, logprobs)
-        return self.children[token_id]
-
-    def extend_cache(self, next_token_index, token_ids, logits, base):
-        node = self
-
-        for j in range(next_token_index, len(token_ids)):
-            token_id = token_ids[j]
-            token_logits = logits[j - base]
-            token_logprobs = torch.log_softmax(token_logits, 0)
-
-            node = node.add_token(token_id, token_logprobs.cpu().numpy())
-
-        return node
-
-
-class Query:
-    """A query to a language model, waiting to be batched."""
-
-    def __init__(self, prompt, future, past=None):
-        self.prompt = prompt
-        self.future = future
-        self.past = past
-
-        if self.past is not None:
-            self.past_len = past[0][0].shape[
-                2
-            ]  # layers, key or value, batch size, num heads, num tokens, head repr length
-        else:
-            self.past_len = 0
-
-    @torch.no_grad()
-    def past_padded(self, layer, j, to_length, dtype, device, past_shape):
-
-        if self.past is not None:
-            return torch.cat(
-                (
-                    self.past[layer][j],
-                    torch.zeros(
-                        1,
-                        past_shape[1],
-                        to_length - self.past_len,
-                        past_shape[3],
-                        dtype=dtype,
-                        device=device,
-                    ),
-                ),
-                dim=2,
-            )
-        else:
-            return torch.zeros(
-                1, past_shape[1], to_length, past_shape[3], dtype=dtype, device=device
-            )
-
-    def prompt_padded(self, pad_token, to_length):
-        return [*self.prompt, *[pad_token for _ in range(to_length - len(self.prompt))]]
-
-    def attention_mask(self, total_past_length, total_seq_length):
-        return [
-            *[1 for _ in range(self.past_len)],
-            *[0 for _ in range(total_past_length - self.past_len)],
-            *[1 for _ in range(len(self.prompt))],
-            *[0 for _ in range(total_seq_length - len(self.prompt))],
-        ]
-
-    def position_ids(self, total_past_length, total_seq_length):
-        return [
-            *range(self.past_len, self.past_len + len(self.prompt)),
-            *[0 for _ in range(total_seq_length - len(self.prompt))],
-        ]
-
-
 class CachedCausalLM:
-    """Wrapper around a HuggingFace causal language model, with support for caching.
+    """Wrapper around a [`genlm_backend.llm.AsyncLM`](https://probcomp.github.io/genlm-backend/reference/genlm_backend/llm/__init__/).
 
     Attributes:
-        model: the underlying HuggingFace model.
-        tokenizer: the underlying HuggingFace tokenizer.
-        device (str): the PyTorch device identifier (e.g. "cpu" or "cuda:0") on which the model is loaded.
-        cache (hfppl.llms.TokenTrie): the cache of previously evaluated log probabilities and key/value vectors.
-        vocab (list[str]): a list mapping token ids to strings.
-        batch_size (int): when auto-batching, maximum number of queries to process in one batch.
-        timeout (float): number of seconds to wait since last query before processing the current batch of queries, even if not full.
+        model (genlm_backend.llm.AsyncLM): The underlying language model (either `AsyncVirtualLM` or `AsyncTransformer`).
+        str_vocab (list[str]): List mapping token IDs to their string representations.
+        byte_vocab (list[bytes]): List mapping token IDs to their byte representations.
+        masks (Masks): Token masks for filtering logits during generation.
     """
 
     @classmethod
-    def from_pretrained(cls, model_id, auth_token=False, load_in_8bit=True):
-        """Create a [`CachedCausalLM`][hfppl.llms.CachedCausalLM] from a pretrained HuggingFace model.
+    def from_pretrained(cls, model_id, backend=None, **kwargs):
+        """Create a CachedCausalLM from a HuggingFace model name.
+
+        This is a convenience method that instantiates the underlying `AsyncLM` from a HuggingFace model name.
 
         Args:
-            model_id (str): the string identifier of the model in HuggingFace's model library.
-            auth_token (str): a HuggingFace API key. Only necessary if using private models, e.g. Meta's Llama models, which require authorization.
-            load_in_8bit (bool): whether to use the `bitsandbytes` library to load the model in 8-bit quantized form.
+            model_id (str): Name or path of the HuggingFace pretrained model to load.
+            backend (str, optional): `AsyncLM` backend to use:
+                - 'vllm' to instantiate an `AsyncVirtualLM`; ideal for GPU usage
+                - 'hf' for an `AsyncTransformer`; ideal for CPU usage
+                - 'mock' for a `MockAsyncLM`; ideal for testing.
+                Defaults to 'vllm' if CUDA is available, otherwise 'hf'.
+            **kwargs: Additional keyword arguments passed to the `AsyncLM` constructor.
+                See [`AsyncLM` documentation](https://probcomp.github.io/genlm-backend/reference/genlm_backend/llm/__init__/).
 
         Returns:
-            model (hfppl.llms.CachedCausalLM): the LLaMPPL-compatible interface to the HuggingFace model.
+            CachedCausalLM: The hfppl-compatible interface to the `AsyncLM` model.
         """
-        bnb_config = BitsAndBytesConfig(load_in_8bit=load_in_8bit)
+        backend = backend or ('vllm' if (torch.cuda.is_available() and VLLM_AVAILABLE) else 'hf')
 
-        if not auth_token:
-            tok = AutoTokenizer.from_pretrained(model_id)
-            mod = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                device_map="auto",
-                quantization_config=bnb_config,
-            )
+        if backend == 'vllm':
+            if not VLLM_AVAILABLE:
+                raise ValueError(
+                    "vLLM backend requested but vLLM is not installed. "
+                    "Please install vLLM with `pip install vllm`."
+                )
+            model_cls = AsyncVirtualLM
+        elif backend == 'hf':
+            model_cls = AsyncTransformer
+        elif backend == 'mock':
+            model_cls = MockAsyncLM
         else:
-            tok = AutoTokenizer.from_pretrained(model_id, token=auth_token)
-            mod = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                token=auth_token,
-                device_map="auto",
-                quantization_config=bnb_config,
+            raise ValueError(f"Unknown backend: {backend}. Must be one of ['vllm', 'hf', 'mock']")
+
+        # Handle legacy auth_token parameter. The ability to pass in the auth_token should
+        # be removed in a future version since it is not supported by the vllm backend.
+        # Users should authenticate with the HuggingFace CLI.
+        auth_token = kwargs.pop('auth_token', None)
+        if auth_token:
+            if backend == 'vllm':
+                raise ValueError(
+                    "Explicitly passing auth_token is not compatible with the vLLM AsyncLM backend. "
+                    "Authenticate using `huggingface-cli login` instead."
+                )
+
+            if 'hf_opts' not in kwargs:
+                kwargs['hf_opts'] = {}
+            kwargs['hf_opts']['token'] = auth_token
+
+            warnings.warn(
+                "Passing auth_token directly is deprecated and will be removed in a future version. "
+                "Please authenticate using `huggingface-cli login` instead.",
+                DeprecationWarning,
+                stacklevel=2
             )
 
-        return CachedCausalLM(mod, tok)
+        load_in_8bit = kwargs.pop('load_in_8bit', False)
+        if load_in_8bit:
+            if 'bitsandbytes_opts' not in kwargs:
+                kwargs['bitsandbytes_opts'] = {}
+            kwargs['bitsandbytes_opts']['load_in_8bit'] = True
 
-    @torch.no_grad()
-    def __init__(self, hf_model, hf_tokenizer, batch_size=20):
+            warnings.warn(
+                "load_in_8bit is deprecated and will be removed in a future version. "
+                "Please pass `bitsandbytes_opts` instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        model = model_cls.from_name(model_id, **kwargs)
+
+        return cls(model)
+
+    def __init__(self, model):
         """
-        Create a `CachedCausalLM` from a loaded HuggingFace model and tokenizer.
+        Create a `CachedCausalLM` from an `AsyncLM`.
 
         Args:
-            hf_model: a HuggingFace `CausalLM`.
-            hf_tokenizer: a HuggingFace `Tokenizer`.
-            batch_size (int): when auto-batching, maximum number of queries to process in one batch.
+            model (genlm_backend.llm.AsyncLM): an `AsyncLM` instance.
         """
-        self.model = hf_model
-        self.tokenizer = hf_tokenizer
-        self.device = hf_model.device
+        if isinstance(model, AsyncVirtualLM):
+            self.backend = 'vllm'
+        elif isinstance(model, AsyncTransformer):
+            self.backend = 'hf'
+        elif isinstance(model, MockAsyncLM):
+            self.backend = 'mock'
+        else:
+            raise ValueError(f"Unknown model type: {type(model)}. Must be one of [AsyncVirtualLM, AsyncTransformer, MockAsyncLM]")
 
-        # TODO: remove required BOS token
-        if self.tokenizer.bos_token_id is None:
-            raise RuntimeError(
-                "Causal LM has no BOS token, distribution of first word unclear"
-            )
-
-        # Evaluate BOS token
-        logits = self.model(
-            torch.tensor([[self.tokenizer.bos_token_id]]).to(self.model.device)
-        ).logits[0][0]
-        logprobs = torch.log_softmax(logits, 0)
-
-        self.cache = TokenTrie(None, logprobs.cpu().numpy())
-
-        # Cache vocabulary
-        bos_len = len(self.tokenizer.decode([self.tokenizer.bos_token_id]))
-        self.vocab = [
-            self.tokenizer.decode([self.tokenizer.bos_token_id, i])[bos_len:]
-            for i in range(len(hf_tokenizer.vocab))
-        ]
-
-        # Precompute useful masks
+        self.model = model
+        self.tokenizer = model.tokenizer
+        self.str_vocab = model.str_vocab
+        self.byte_vocab = model.byte_vocab
         self.masks = Masks(self)
 
-        # Queries to be batched. Each query is a sequence of tokens,
-        # and a Future to be called when the query is resolved.
-        self.queries = []
-        self.batch_size = batch_size
-        self.timeout = 0.02
-        self.timer = None
+    @property
+    def vocab(self):
+        """Legacy accessor for string vocabulary. Prefer using `.str_vocab` directly for access to the model's string vocabulary."""
+        warnings.warn(
+            "Accessing .vocab directly is deprecated and will be removed in a future version. Use .str_vocab or .byte_vocab instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.model.str_vocab
 
     def __deepcopy__(self, memo):
         return self
 
-    def clear_cache(self):
-        """Clear the cache of log probabilities and key/value pairs."""
-        self.cache = TokenTrie(None, self.cache.logprobs)
-
-    def clear_kv_cache(self):
-        """Clear any key and value vectors from the cache."""
-        self.cache.clear_kv_cache()
-
-    def reset_async_queries(self):
-        """Clear any pending language model queries from the queue. Use this method when an exception prevented an inference algorithm from executing
-        to completion."""
-        self.queries = []
-
-    @torch.no_grad()
-    def cache_kv(self, prompt_tokens):
-        """Cache the key and value vectors for a prompt. Future queries that have this prompt as a prefix will only run the LLM on new tokens.
-
-        Args:
-            prompt_tokens (list[int]): token ids for the prompt to cache.
-        """
-        result = self.model(torch.tensor([prompt_tokens]).to(self.device))
-
-        node = self.cache.extend_cache(1, prompt_tokens, result.logits[0], 0)
-        node.past_key_values = result.past_key_values
-
-    @torch.no_grad()
-    def batch_evaluate_queries(self):
-
-        queries, self.queries = self.queries, []
-        if len(queries) == 0:
-            return
-
-        past_example = next((q.past for q in queries if q.past), False)
-        max_past_length = max(q.past_len for q in queries)
-        max_query_length = max(len(q.prompt) for q in queries)
-
-        padding_token_id = (
-            self.tokenizer.pad_token_id
-            if self.tokenizer.pad_token_id is not None
-            else 0
-        )
-
-        input_ids = torch.tensor(
-            [q.prompt_padded(padding_token_id, max_query_length) for q in queries]
-        ).to(self.device)
-        attn_masks = torch.tensor(
-            [q.attention_mask(max_past_length, max_query_length) for q in queries]
-        ).to(self.device)
-        posn_ids = torch.tensor(
-            [q.position_ids(max_past_length, max_query_length) for q in queries]
-        ).to(self.device)
-        if past_example:
-            pasts = [
-                [
-                    torch.cat(
-                        (
-                            *(
-                                q.past_padded(
-                                    layer,
-                                    j,
-                                    max_past_length,
-                                    past_example[0][0].dtype,
-                                    self.device,
-                                    past_example[0][0].shape,
-                                )
-                                for q in queries
-                            ),
-                        ),
-                        dim=0,
-                    )
-                    for j in range(2)
-                ]
-                for layer in range(len(past_example))
-            ]
-        else:
-            pasts = None
-
-        results = self.model(
-            input_ids,
-            attention_mask=attn_masks,
-            position_ids=posn_ids,
-            past_key_values=pasts,
-            use_cache=pasts is not None,
-        )
-
-        for i, q in enumerate(queries):
-            q.future.set_result(results.logits[i])
-
-    @torch.no_grad()
-    def add_query(self, query, future, past):
-        self.queries.append(Query(query, future, past))
-
-        if self.timer:
-            self.timer.cancel()
-            self.timer = None
-        if len(self.queries) >= self.batch_size:
-            self.batch_evaluate_queries()
-        else:
-            self.timer = asyncio.get_running_loop().call_later(
-                self.timeout, lambda: self.batch_evaluate_queries()
-            )
-
-    def walk_cache(self, token_ids):
-        # Walk while tokens can be found
-        node = self.cache
-        next_token_index = 1
-
-        past = None
-        base = 0
-        while next_token_index < len(token_ids):
-            if node.past_key_values is not None:
-                past = node.past_key_values
-                base = next_token_index
-            if node.has_token(token_ids[next_token_index]):
-                node = node.get_token(token_ids[next_token_index])
-                next_token_index += 1
-            else:
-                break
-
-        return node, next_token_index, past, base
-
-    @torch.no_grad()
     async def next_token_logprobs(self, token_ids):
-        """Request log probabilities of next token. This version is asynchronous because it automatically batches concurrent requests; use with `await`.
+        """Request log probabilities of next token. This version is asynchronous and support auto batching of concurrent requests; use with `await`.
 
         Args:
-            token_ids (list[int]): a list of token ids starting with `tokenizer.bos_token_id`, representing a prompt to the language model.
+            token_ids (list[int]): a list of token ids, representing a prompt to the language model.
 
         Returns:
-            logprobs (numpy.array): a numpy array of `len(vocab)`, with the language model's log (normalized) probabilities for the next token following the prompt.
+            logprobs (numpy.array): a numpy array of length `len(str_vocab)` (equivalently `len(byte_vocab)`) with the language model's log (normalized) probabilities for the next token following the prompt.
         """
+        logprobs = await self.model.next_token_logprobs(token_ids)
+        return logprobs.float().cpu().numpy()
 
-        # Ensure that token list begins with BOS
-        assert token_ids[0] == self.tokenizer.bos_token_id
-
-        node, next_token_index, past, base = self.walk_cache(token_ids)
-
-        # If we processed all tokens, then we're done.
-        if next_token_index == len(token_ids):
-            return node.logprobs
-
-        # Create a future with the prompt
-        future = asyncio.get_running_loop().create_future()
-        self.add_query(token_ids[base:], future, past)
-        logits = await future
-
-        # Create new nodes
-        node = node.extend_cache(next_token_index, token_ids, logits, base)
-
-        return node.logprobs
-
-    @torch.no_grad()
     def next_token_logprobs_unbatched(self, token_ids):
         """Request log probabilities of next token. Not asynchronous, and does not support auto-batching.
 
         Args:
-            token_ids (list[int]): a list of token ids starting with `tokenizer.bos_token_id`, representing a prompt to the language model.
+            token_ids (list[int]): a list of token ids, representing a prompt to the language model.
 
         Returns:
-            logprobs (numpy.array): a numpy array of `len(vocab)`, with the language model's log (normalized) probabilities for the next token following the prompt.
+            logprobs (numpy.array): a numpy array of length `len(str_vocab)` (equivalently `len(byte_vocab)`) with the language model's log (normalized) probabilities for the next token following the prompt.
         """
+        return self.model.next_token_logprobs_sync(token_ids).float().cpu().numpy()
 
-        # Ensure that token list begins with BOS
-        assert token_ids[0] == self.tokenizer.bos_token_id
+    def clear_cache(self):
+        """Clear the cache of log probabilities and key/value pairs.
 
-        # Walk while tokens can be found
-        node, next_token_index, past, base = self.walk_cache(token_ids)
+        For HuggingFace backend: Clears both logprob cache and KV cache.
 
-        if next_token_index == len(token_ids):
-            return node.logprobs
+        For vLLM backend: Only clears logprob cache (KV cache is managed internally by vLLM).
+        """
+        self.model.clear_cache()
 
-        logits = self.model(
-            torch.tensor([token_ids[base:]]).to(self.device),
-            past_key_values=node.past_key_values,
-            use_cache=node.past_key_values is not None,
-        ).logits[0]
+    def clear_kv_cache(self):
+        """Clear any key and value vectors from the cache."""
+        if self.backend == 'hf':
+            self.model.clear_kv_cache()
+        elif self.backend == 'vllm':
+            warnings.warn(
+                "clear_kv_cache() is only supported for the HuggingFace backend. The KV cache for the vLLM backend is handled internally by vLLM. No operation performed.",
+                RuntimeWarning,
+                stacklevel=2
+            )
+        elif self.backend == 'mock':
+            pass
+        else:
+            raise RuntimeError(f"clear_kv_cache() is not implemented for backend type {type(self.model)}")
 
-        node = node.extend_cache(next_token_index, token_ids, logits, base)
+    def reset_async_queries(self):
+        """Clear any pending language model queries from the queue."""
+        if self.backend == 'hf':
+            self.model.reset_async_queries()
+        elif self.backend == 'vllm':
+            warnings.warn(
+                "reset_async_queries() is only supported for the HuggingFace backend. No operation performed.",
+                RuntimeWarning,
+                stacklevel=2
+            )
+        elif self.backend == 'mock':
+            pass
+        else:
+            raise RuntimeError(f"reset_async_queries() is not implemented for backend type {type(self.model)}")
 
-        return node.logprobs
+    def cache_kv(self, prompt_tokens):
+        """Cache the key and value vectors for a prompt.
+
+        Args:
+            prompt_tokens (list[int]): token ids for the prompt to cache.
+        """
+        if self.backend == 'hf':
+            self.model.cache_kv(prompt_tokens)
+        elif self.backend == 'vllm':
+            warnings.warn(
+                "cache_kv() is only supported for the HuggingFace backend. The KV cache for the vLLM backend is handled internally by vLLM. No operation performed.",
+                RuntimeWarning,
+                stacklevel=2
+            )
+        elif self.backend == 'mock':
+            pass
+        else:
+            raise RuntimeError(f"cache_kv() is not implemented for backend type {type(self.model)}")
