@@ -44,6 +44,7 @@ class Masks:
             for (i, v) in enumerate(lm.str_vocab)
             if any(c in string.whitespace for c in v)
         )
+        self.EOS = set([lm.tokenizer.eos_token_id])
 
         self.MAX_TOKEN_LENGTH = self.precompute_token_length_masks(lm)
 
