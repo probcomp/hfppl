@@ -11,8 +11,6 @@ Requires synchromesh (github.com/kanishkg/synchromesh)
 """
 
 import asyncio
-import os
-from typing import List
 
 from synchromesh.completion_engine import LarkCompletionEngine
 from synchromesh.synchromesh import StreamingCSD

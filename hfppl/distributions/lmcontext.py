@@ -1,5 +1,4 @@
 import copy
-import warnings
 
 import numpy as np
 
@@ -10,7 +9,6 @@ from .distribution import Distribution
 
 
 class LMNextToken(Distribution):
-
     def __init__(self, ctx):
         self.ctx = ctx
 

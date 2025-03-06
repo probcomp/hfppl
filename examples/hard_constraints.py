@@ -1,5 +1,4 @@
 import asyncio
-import os
 import string
 
 from hfppl import CachedCausalLM
@@ -24,7 +23,6 @@ def make_masks(LLM):
 
 
 class ConstraintModel(Model):
-
     def __init__(self, LLM, prompt, max_tokens):
         super().__init__()
         self.context = LMContext(LLM, prompt)

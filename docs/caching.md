@@ -7,7 +7,7 @@ Next-token log probabilities are always cached, whenever they are computed.
 This way, if different particles make exactly the same log probability queries,
 the Transformer is run only once. This is primarily beneficial when:
 
-* particles are cloned during resampling: when each particle is 
+* particles are cloned during resampling: when each particle is
 
 * cloned particles happen to sample the same next token: if the next-token distribution is concentrated,
   it is likely that multiple copies of a particle will sample the same next token. Log probability caching
@@ -30,15 +30,15 @@ In principle, key-value caching is most useful when:
   cost to cache *different* key-value sequences for *each* particle, to speed up future next-token
   queries.
 
-Currently, only the first use case is well-supported by the LLaMPPL library, via the 
+Currently, only the first use case is well-supported by the LLaMPPL library, via the
 [`lm.cache_kv(prompt)`][hfppl.llms.CachedCausalLM.cache_kv] method. This method computes and caches key and value vectors
 for every token in `prompt`. Future calls to [`lm.next_token_logprobs`][hfppl.llms.CachedCausalLM.next_token_logprobs] and [`lm.next_token_logprobs_unbatched`][hfppl.llms.CachedCausalLM.next_token_logprobs_unbatched]
 will automatically recognize when `prompt` is a prefix of the new query, and automatically
 exploit incremental computation. Multiple prompts can be cached, and [`lm.clear_kv_cache()`][hfppl.llms.CachedCausalLM.clear_kv_cache] can
 be used to clear the KV-cache without clearing the log probability cache.
 
-Because [`lm.cache_kv`][hfppl.llms.CachedCausalLM.cache_kv] is not a batched call, 
-it is not well-suited to caching 
-different strings for different particles. 
+Because [`lm.cache_kv`][hfppl.llms.CachedCausalLM.cache_kv] is not a batched call,
+it is not well-suited to caching
+different strings for different particles.
 Rather, it is best used in the `__init__` method of a model--or even
 outside of a model--on fixed prompt strings that every particle will share.

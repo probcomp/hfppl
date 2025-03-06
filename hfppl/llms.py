@@ -1,6 +1,5 @@
 """Utilities for working with language models."""
 
-import asyncio
 import string
 import warnings
 from collections import defaultdict

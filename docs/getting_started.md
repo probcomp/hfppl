@@ -46,18 +46,18 @@ class MyModel(Model):
         # A stateful context object for the LLM, initialized with the prompt
         self.context = LMContext(lm, prompt)
         self.eos_token = lm.tokenizer.eos_token_id
-        
+
         # The forbidden letter
         self.forbidden_tokens = set(i for (i, v) in enumerate(lm.vocab)
                                       if forbidden_letter in v)
-    
+
     # The step method is used to perform a single 'step' of generation.
     # This might be a single token, a single phrase, or any other division.
     # Here, we generate one token at a time.
     async def step(self):
         # Condition on the next token *not* being a forbidden token.
         await self.observe(self.context.mask_dist(self.forbidden_tokens), False)
-        
+
         # Sample the next token from the LLM -- automatically extends `self.context`.
         token = await self.sample(self.context.next_token())
 

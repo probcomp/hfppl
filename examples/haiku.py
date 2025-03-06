@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 import nltk
 
@@ -19,7 +18,6 @@ CMUDICT = cmudict.dict()
 
 
 def count_syllables(word, unknown_word_syllables=100):
-
     # Use the dictionary to get the list of possible phonetic representations for the word
     phonetic_transcriptions = CMUDICT.get(word.strip().lower(), [])
 
@@ -69,7 +67,6 @@ still not a butterfly."""
 
 # LLaMPPL model
 class Haiku(Model):
-
     def __init__(self, LLM, prompt, syllable_pattern=[5, 7, 5]):
         super().__init__()
         self.context = LMContext(LLM, prompt)
@@ -86,7 +83,6 @@ class Haiku(Model):
 
         # Loop to sample words until this line is over
         while syllables_remaining > 0:
-
             # Sample a word
             word, punctuation = await self.call(sample_word(self.context))
 

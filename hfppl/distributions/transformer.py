@@ -7,7 +7,6 @@ from .distribution import Distribution
 
 # Transformer(lm, prompt) -- where prompt can either be a string or a list of Tokens.
 class Transformer(Distribution):
-
     def __init__(self, lm, prompt, temp=1.0):
         """Create a Categorical distribution whose values are Tokens, with probabilities given
         by a language model. Supports auto-batching.
