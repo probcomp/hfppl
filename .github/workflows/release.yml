@@ -1,0 +1,40 @@
+name: Release to PyPI
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+
+    # Add "id-token" with the intended permissions.
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # This is here so that the versioning plugin will be able to see tags
+          # and version using them.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11.5
+
+
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1
+
+      - name: Configure deploy keys
+        run: |
+          poetry config pypi-token.pypi ${{ secrets.PYPI_API_KEY }}
+
+      - name: Install deps
+        run: poetry install
+
+      - name: Deploy to PyPI
+        run: poetry publish --build
