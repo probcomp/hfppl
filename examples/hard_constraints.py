@@ -7,6 +7,7 @@ from hfppl import LMContext
 from hfppl import Model
 from hfppl import smc_standard
 
+
 def make_masks(LLM):
     return {
         i: set(
@@ -63,7 +64,7 @@ class ConstraintModel(Model):
         return f"{self.context}"
 
     def immutable_properties(self):
-        return ['masks']
+        return ["masks"]
 
 
 # From Politico.com
@@ -74,6 +75,7 @@ prompt = """3 things to watch …
 2. The Senate is back this evening for a bed-check vote. With Minority Leader Mitch McConnell having successfully quieted (public) chatter about his health, expect senators to be quizzed anew about Sen. Tommy Tuberville’s (R-Ala.) Pentagon nominee blockade, especially with the Joint Chiefs chair, Gen. Mark Milley, just weeks away from retirement and the confirmation of his successor, Gen. C.Q. Brown, in limbo.
 
 3."""
+
 
 async def run_example(LLM, max_tokens=50, n_particles=20, ess_threshold=0.5):
     # Cache the key value vectors for the prompt.
@@ -91,6 +93,7 @@ async def run_example(LLM, max_tokens=50, n_particles=20, ess_threshold=0.5):
 
     return particles
 
+
 def main():
     # Load the language model.
     # Mistral and Vicuna are open models; to use a model with restricted access, like LLaMA 3,
@@ -100,11 +103,12 @@ def main():
     # LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
 
     # Set batch size if provided. This operation is only valid for the HuggingFace backend.
-    if LLM.backend == 'hf':
+    if LLM.backend == "hf":
         LLM.batch_size = 40
-        
+
     # Run the example.
     asyncio.run(run_example(LLM))
+
 
 if __name__ == "__main__":
     main()
