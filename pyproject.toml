@@ -20,7 +20,7 @@ protobuf = "^5.27.2"
 nltk = {version = "^3.8.1", optional = true}
 pre-commit = "^3.7.1"
 ipykernel = "^6.29.5"
-genlm-backend = { git = "https://github.com/chi-collective/genlm-backend.git" }
+genlm-backend = "^0.0.1"
 
 [tool.poetry.group.vllm]
 optional = true
@@ -31,6 +31,8 @@ vllm = "^0.6.6"
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
 pytest-benchmark = "*"
+pytest-cov = "*"
+pytest-xdist = "^3.2.0"
 black = "^23.12.1"
 pre-commit = "^3.6.0"
 jupyterlab = "^4.0.9"
