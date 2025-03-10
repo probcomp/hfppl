@@ -1,5 +1,6 @@
 import copy
 import warnings
+
 import numpy as np
 
 from ..llms import Token
@@ -82,7 +83,9 @@ class LMTokenMask(Distribution):
             # If there are no good tokens, the log probability of v under the mask is -inf
             # However, since this method updates the model_mask as a side-effect,
             # this will put the context in an invalid state, so we instead raise an exception.
-            raise NullMask("Unable to compute log probability of mask that rules out all tokens.")
+            raise NullMask(
+                "Unable to compute log probability of mask that rules out all tokens."
+            )
         else:
             logprob_good = logsumexp(self.ctx.next_token_logprobs[list(good_tokens)])
 

@@ -126,7 +126,7 @@ async def run_generation(
     verbose: bool = False,
 ):
     LLM = CachedCausalLM.from_pretrained(args.model)
-    if LLM.backend == 'hf':
+    if LLM.backend == "hf":
         LLM.batch_size = args.batch_size
     model = GrammarConstrainedSMC(
         lm=LLM,

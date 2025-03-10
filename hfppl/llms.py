@@ -1,11 +1,14 @@
 """Utilities for working with language models."""
 
-import torch
-import string
 import asyncio
+import string
 import warnings
 from collections import defaultdict
-from genlm_backend.llm import AsyncVirtualLM, AsyncTransformer, MockAsyncLM
+
+import torch
+from genlm_backend.llm import AsyncTransformer
+from genlm_backend.llm import AsyncVirtualLM
+from genlm_backend.llm import MockAsyncLM
 
 VLLM_AVAILABLE = True
 try:
@@ -13,8 +16,9 @@ try:
 except ImportError:
     VLLM_AVAILABLE = False
 
-warnings.filterwarnings('once', category=DeprecationWarning)
-warnings.filterwarnings('once', category=RuntimeWarning)
+warnings.filterwarnings("once", category=DeprecationWarning)
+warnings.filterwarnings("once", category=RuntimeWarning)
+
 
 class Masks:
     def __init__(self, lm):
@@ -207,55 +211,59 @@ class CachedCausalLM:
         Returns:
             CachedCausalLM: The hfppl-compatible interface to the `AsyncLM` model.
         """
-        backend = backend or ('vllm' if (torch.cuda.is_available() and VLLM_AVAILABLE) else 'hf')
+        backend = backend or (
+            "vllm" if (torch.cuda.is_available() and VLLM_AVAILABLE) else "hf"
+        )
 
-        if backend == 'vllm':
+        if backend == "vllm":
             if not VLLM_AVAILABLE:
                 raise ValueError(
                     "vLLM backend requested but vLLM is not installed. "
                     "Please install vLLM with `pip install vllm`."
                 )
             model_cls = AsyncVirtualLM
-        elif backend == 'hf':
+        elif backend == "hf":
             model_cls = AsyncTransformer
-        elif backend == 'mock':
+        elif backend == "mock":
             model_cls = MockAsyncLM
         else:
-            raise ValueError(f"Unknown backend: {backend}. Must be one of ['vllm', 'hf', 'mock']")
+            raise ValueError(
+                f"Unknown backend: {backend}. Must be one of ['vllm', 'hf', 'mock']"
+            )
 
         # Handle legacy auth_token parameter. The ability to pass in the auth_token should
         # be removed in a future version since it is not supported by the vllm backend.
         # Users should authenticate with the HuggingFace CLI.
-        auth_token = kwargs.pop('auth_token', None)
+        auth_token = kwargs.pop("auth_token", None)
         if auth_token:
-            if backend == 'vllm':
+            if backend == "vllm":
                 raise ValueError(
                     "Explicitly passing auth_token is not compatible with the vLLM AsyncLM backend. "
                     "Authenticate using `huggingface-cli login` instead."
                 )
 
-            if 'hf_opts' not in kwargs:
-                kwargs['hf_opts'] = {}
-            kwargs['hf_opts']['token'] = auth_token
+            if "hf_opts" not in kwargs:
+                kwargs["hf_opts"] = {}
+            kwargs["hf_opts"]["token"] = auth_token
 
             warnings.warn(
                 "Passing auth_token directly is deprecated and will be removed in a future version. "
                 "Please authenticate using `huggingface-cli login` instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
 
-        load_in_8bit = kwargs.pop('load_in_8bit', False)
+        load_in_8bit = kwargs.pop("load_in_8bit", False)
         if load_in_8bit:
-            if 'bitsandbytes_opts' not in kwargs:
-                kwargs['bitsandbytes_opts'] = {}
-            kwargs['bitsandbytes_opts']['load_in_8bit'] = True
+            if "bitsandbytes_opts" not in kwargs:
+                kwargs["bitsandbytes_opts"] = {}
+            kwargs["bitsandbytes_opts"]["load_in_8bit"] = True
 
             warnings.warn(
                 "load_in_8bit is deprecated and will be removed in a future version. "
                 "Please pass `bitsandbytes_opts` instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
 
         model = model_cls.from_name(model_id, **kwargs)
@@ -270,13 +278,15 @@ class CachedCausalLM:
             model (genlm_backend.llm.AsyncLM): an `AsyncLM` instance.
         """
         if isinstance(model, AsyncVirtualLM):
-            self.backend = 'vllm'
+            self.backend = "vllm"
         elif isinstance(model, AsyncTransformer):
-            self.backend = 'hf'
+            self.backend = "hf"
         elif isinstance(model, MockAsyncLM):
-            self.backend = 'mock'
+            self.backend = "mock"
         else:
-            raise ValueError(f"Unknown model type: {type(model)}. Must be one of [AsyncVirtualLM, AsyncTransformer, MockAsyncLM]")
+            raise ValueError(
+                f"Unknown model type: {type(model)}. Must be one of [AsyncVirtualLM, AsyncTransformer, MockAsyncLM]"
+            )
 
         self.model = model
         self.tokenizer = model.tokenizer
@@ -290,7 +300,7 @@ class CachedCausalLM:
         warnings.warn(
             "Accessing .vocab directly is deprecated and will be removed in a future version. Use .str_vocab or .byte_vocab instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         return self.model.str_vocab
 
@@ -331,33 +341,37 @@ class CachedCausalLM:
 
     def clear_kv_cache(self):
         """Clear any key and value vectors from the cache."""
-        if self.backend == 'hf':
+        if self.backend == "hf":
             self.model.clear_kv_cache()
-        elif self.backend == 'vllm':
+        elif self.backend == "vllm":
             warnings.warn(
                 "clear_kv_cache() is only supported for the HuggingFace backend. The KV cache for the vLLM backend is handled internally by vLLM. No operation performed.",
                 RuntimeWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-        elif self.backend == 'mock':
+        elif self.backend == "mock":
             pass
         else:
-            raise RuntimeError(f"clear_kv_cache() is not implemented for backend type {type(self.model)}")
+            raise RuntimeError(
+                f"clear_kv_cache() is not implemented for backend type {type(self.model)}"
+            )
 
     def reset_async_queries(self):
         """Clear any pending language model queries from the queue."""
-        if self.backend == 'hf':
+        if self.backend == "hf":
             self.model.reset_async_queries()
-        elif self.backend == 'vllm':
+        elif self.backend == "vllm":
             warnings.warn(
                 "reset_async_queries() is only supported for the HuggingFace backend. No operation performed.",
                 RuntimeWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-        elif self.backend == 'mock':
+        elif self.backend == "mock":
             pass
         else:
-            raise RuntimeError(f"reset_async_queries() is not implemented for backend type {type(self.model)}")
+            raise RuntimeError(
+                f"reset_async_queries() is not implemented for backend type {type(self.model)}"
+            )
 
     def cache_kv(self, prompt_tokens):
         """Cache the key and value vectors for a prompt.
@@ -365,15 +379,17 @@ class CachedCausalLM:
         Args:
             prompt_tokens (list[int]): token ids for the prompt to cache.
         """
-        if self.backend == 'hf':
+        if self.backend == "hf":
             self.model.cache_kv(prompt_tokens)
-        elif self.backend == 'vllm':
+        elif self.backend == "vllm":
             warnings.warn(
                 "cache_kv() is only supported for the HuggingFace backend. The KV cache for the vLLM backend is handled internally by vLLM. No operation performed.",
                 RuntimeWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-        elif self.backend == 'mock':
+        elif self.backend == "mock":
             pass
         else:
-            raise RuntimeError(f"cache_kv() is not implemented for backend type {type(self.model)}")
+            raise RuntimeError(
+                f"cache_kv() is not implemented for backend type {type(self.model)}"
+            )
