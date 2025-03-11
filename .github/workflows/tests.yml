@@ -18,7 +18,7 @@ jobs:
     steps:
     - name: Check out repository
       uses: actions/checkout@v4
-      
+
     - name: Set up python
       id: setup-python
       uses: actions/setup-python@v5
@@ -27,7 +27,7 @@ jobs:
 
     - name: Install Poetry
       uses: snok/install-poetry@v1
-    
+
     - name: Load cached venv
       id: cached-poetry-dependencies
       uses: actions/cache@v3
@@ -49,5 +49,5 @@ jobs:
         fail_ci_if_error: false
         disable_search: true
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.json        
-        slug: probcomp/hfppl                
+        files: ./coverage.json
+        slug: probcomp/hfppl

@@ -2,7 +2,6 @@ import copy
 
 
 class SubModel:
-
     def __init__(self):
         self.parent = None
 

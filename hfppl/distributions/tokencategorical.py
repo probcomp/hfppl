@@ -7,7 +7,6 @@ from .distribution import Distribution
 
 
 class TokenCategorical(Distribution):
-
     def __init__(self, lm, logits):
         """Create a Categorical distribution whose values are Tokens, not integers.
         Given a language model `lm` and an array of unnormalized log probabilities (of length `len(lm.vocab)`),

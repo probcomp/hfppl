@@ -1,10 +1,7 @@
 import json
 
-import numpy as np
-
 
 class SMCRecord:
-
     def __init__(self, n):
         self.history = []
         self.most_recent_weights = [0.0 for _ in range(n)]

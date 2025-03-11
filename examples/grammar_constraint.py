@@ -11,8 +11,6 @@ Requires synchromesh (github.com/kanishkg/synchromesh)
 """
 
 import asyncio
-import os
-from typing import List
 
 from synchromesh.completion_engine import LarkCompletionEngine
 from synchromesh.synchromesh import StreamingCSD
@@ -126,7 +124,7 @@ async def run_generation(
     verbose: bool = False,
 ):
     LLM = CachedCausalLM.from_pretrained(args.model)
-    if LLM.backend == 'hf':
+    if LLM.backend == "hf":
         LLM.batch_size = args.batch_size
     model = GrammarConstrainedSMC(
         lm=LLM,
