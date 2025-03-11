@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hfppl"
-version = "0.2.0"
+version = "0.0.0"
 description = "Probabilistic programming with HuggingFace Transformer models."
 authors = [
     "Alex Lew <alexlew@mit.edu>",
@@ -55,5 +55,11 @@ evaluate = "^0.4.2"
 examples=["nltk"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry.requires-plugins]
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
+
+[tool.poetry-dynamic-versioning]
+enable = true
