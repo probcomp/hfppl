@@ -7,7 +7,9 @@ from .modeling import submodel
 @submodel
 async def sample_word(self, context, max_tokens=5, allow_punctuation=True):
     """Sample a word from the `LMContext` object `context`."""
-    last_token = context.lm.str_vocab[context.tokens[-1]] if len(context.tokens) > 0 else ""
+    last_token = (
+        context.lm.str_vocab[context.tokens[-1]] if len(context.tokens) > 0 else ""
+    )
     last_character = last_token[-1] if len(last_token) > 0 else ""
     needs_space = last_character not in string.whitespace and last_character not in [
         "-",
@@ -81,7 +83,9 @@ async def sample_word_2(
     if max_chars is not None:
         assert max_chars > 1
 
-    last_token = context.lm.str_vocab[context.tokens[-1]] if len(context.tokens) > 0 else ""
+    last_token = (
+        context.lm.str_vocab[context.tokens[-1]] if len(context.tokens) > 0 else ""
+    )
     last_character = last_token[-1] if len(last_token) > 0 else ""
     needs_space = last_character not in string.whitespace and last_character not in [
         "-",

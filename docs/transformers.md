@@ -14,7 +14,7 @@ Alternatively, you can initialize an [`LMContext`][hfppl.distributions.lmcontext
 
 ## Create custom token distributions with `TokenCategorical`
 
-You may also create a custom distribution over the vocabulary of a language model using the [`TokenCategorical`][hfppl.distributions.tokencategorical.TokenCategorical] distribution. It is parameterized by a [`CachedCausalLM`][hfppl.llms.CachedCausalLM] instance, and an array of logits equal in length to the language model's vocabulary size. 
-This distribution is particularly useful as a proposal distribution; for example, a model might `sample` with `dist` set 
+You may also create a custom distribution over the vocabulary of a language model using the [`TokenCategorical`][hfppl.distributions.tokencategorical.TokenCategorical] distribution. It is parameterized by a [`CachedCausalLM`][hfppl.llms.CachedCausalLM] instance, and an array of logits equal in length to the language model's vocabulary size.
+This distribution is particularly useful as a proposal distribution; for example, a model might `sample` with `dist` set
 to the LM's next token distribution, but with `proposal` set to a modified distribution that uses a heuristic to upweight
 'good' tokens and downweight 'bad' ones.

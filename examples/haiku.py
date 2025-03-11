@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 import nltk
 
@@ -19,7 +18,6 @@ CMUDICT = cmudict.dict()
 
 
 def count_syllables(word, unknown_word_syllables=100):
-
     # Use the dictionary to get the list of possible phonetic representations for the word
     phonetic_transcriptions = CMUDICT.get(word.strip().lower(), [])
 
@@ -33,6 +31,7 @@ def count_syllables(word, unknown_word_syllables=100):
     )
 
     return syllable_count
+
 
 # Example poems for the prompt.
 # Authors:
@@ -65,9 +64,9 @@ A caterpillar,
 this deep in fall,
 still not a butterfly."""
 
+
 # LLaMPPL model
 class Haiku(Model):
-
     def __init__(self, LLM, prompt, syllable_pattern=[5, 7, 5]):
         super().__init__()
         self.context = LMContext(LLM, prompt)
@@ -84,7 +83,6 @@ class Haiku(Model):
 
         # Loop to sample words until this line is over
         while syllables_remaining > 0:
-
             # Sample a word
             word, punctuation = await self.call(sample_word(self.context))
 
@@ -116,13 +114,16 @@ class Haiku(Model):
         )
         return s.replace("\n", "/")
 
-async def run_example(LLM, poem_title, syllable_pattern=[5, 7, 5], n_particles=20, ess_threshold=0.5):
+
+async def run_example(
+    LLM, poem_title, syllable_pattern=[5, 7, 5], n_particles=20, ess_threshold=0.5
+):
     # Construct prompt
     prompt = f"""{EXAMPLE_POEMS}
 
 5. "{poem_title}"
 """
-    
+
     # Cache the key value vectors for the prompt
     LLM.cache_kv(LLM.tokenizer.encode(prompt))
 
@@ -136,6 +137,7 @@ async def run_example(LLM, poem_title, syllable_pattern=[5, 7, 5], n_particles=2
 
     return particles
 
+
 def main():
     # Load the language model.
     # Mistral is an open model; to use a model with restricted access, like LLaMA 3,
@@ -144,22 +146,24 @@ def main():
     # LLM = CachedCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
 
     # Set batch size if using HuggingFace backend
-    if LLM.backend == 'hf':
+    if LLM.backend == "hf":
         LLM.batch_size = 40
 
     # Get poem title from user
     poem_title = input("Enter a title for your Haiku: ")
 
-    syllables_per_line = [5, 7, 5] # [5, 3, 5] for a Lune
-    
+    syllables_per_line = [5, 7, 5]  # [5, 3, 5] for a Lune
+
     # Run the example
-    particles = asyncio.run(run_example(LLM, poem_title, syllable_pattern=syllables_per_line))
+    particles = asyncio.run(
+        run_example(LLM, poem_title, syllable_pattern=syllables_per_line)
+    )
 
     print("--------")
     for i, particle in enumerate(particles):
         print(f"\nPoem {i} (weight {particle.weight}):")
         print(f"{particle.context}")
 
+
 if __name__ == "__main__":
     main()
-
