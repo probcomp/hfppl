@@ -2,11 +2,11 @@ import asyncio
 
 import nltk
 
-from hfppl import CachedCausalLM
-from hfppl import LMContext
-from hfppl import Model
-from hfppl import sample_word
-from hfppl import smc_standard
+from genlm.llamppl import CachedCausalLM
+from genlm.llamppl import LMContext
+from genlm.llamppl import Model
+from genlm.llamppl import sample_word
+from genlm.llamppl import smc_standard
 
 # download the CMU pronunciation dictionary (if we haven't already)
 nltk.download("cmudict")
