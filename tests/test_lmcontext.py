@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import torch
 
-from hfppl.distributions.lmcontext import LMContext
-from hfppl.llms import CachedCausalLM
+from genlm.llamppl.distributions.lmcontext import LMContext
+from genlm.llamppl.llms import CachedCausalLM
 
 backends = [
     "mock",

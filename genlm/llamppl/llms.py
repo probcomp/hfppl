@@ -5,9 +5,9 @@ import warnings
 from collections import defaultdict
 
 import torch
-from genlm_backend.llm import AsyncTransformer
-from genlm_backend.llm import AsyncVirtualLM
-from genlm_backend.llm import MockAsyncLM
+from genlm.backend.llm import AsyncTransformer
+from genlm.backend.llm import AsyncVirtualLM
+from genlm.backend.llm import MockAsyncLM
 
 VLLM_AVAILABLE = True
 try:

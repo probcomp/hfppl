@@ -1,10 +1,10 @@
 import asyncio
 import string
 
-from hfppl import CachedCausalLM
-from hfppl import LMContext
-from hfppl import Model
-from hfppl import smc_standard
+from genlm.llamppl import CachedCausalLM
+from genlm.llamppl import LMContext
+from genlm.llamppl import Model
+from genlm.llamppl import smc_standard
 
 
 def make_masks(LLM):
